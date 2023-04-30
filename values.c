@@ -54,6 +54,15 @@ val_t val_wrap_bool(int b)
   return b ? val_true : val_false;
 }
 
+int val_unwrap_file(val_t x)
+{
+  return x >> file_shift;
+}
+val_t val_wrap_file(int64_t file)
+{
+  return (file << file_shift) | file_type_tag;
+}
+
 val_char_t val_unwrap_char(val_t x)
 {
   return (val_char_t)(x >> char_shift);

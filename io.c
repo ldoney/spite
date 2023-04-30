@@ -1,8 +1,12 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <inttypes.h>
 #include "types.h"
 #include "values.h"
 #include "runtime.h"
+
+#include <fcntl.h>
+#include <unistd.h>
 
 val_t read_byte(void)
 {
@@ -25,46 +29,98 @@ val_t write_byte(val_t c)
 }
 
 // ****** Spite ********* 
-//
+// TODO lists:
+// - Free stuff after malloc
+// - Close files when done
+// - Error handling when stuff goes wrong
+// - Implement sockets (switch between the two)
+
 
 // file/sock -> bool
-val_t close(val_t fs) {
-  printf("Unimplemented!\n");
-  error_handler(1);
-  return val_wrap_void();
+val_t spite_close(val_t fs) {
+  //TODO: Implement some switch for sockets, this is for files
+  int64_t f = val_unwrap_file(fs);
+  if (close(f) == 0) 
+    return val_true;
+  error_handler();
+
+  // Should never happen!
+  return val_false;
 }
 
 // string, char -> file
-val_t open(val_t path, val_t flag) {
-  printf("Unimplemented!\n");
-  error_handler(1);
-  return val_wrap_void();
+val_t spite_open(val_t path, val_t flag) {
+  //TODO: Implement some switch for sockets, this is for files
+  val_str_t* p = val_unwrap_str(path);
+  val_char_t f = val_unwrap_char(flag);
+  p->codepoints[p->len] = '\0';
+  int64_t res = open((const char*) p->codepoints, f);
+
+  //TODO: do error handling!!!
+
+  return val_wrap_file(res);
 }
 
 // int -> string
-val_t read_stdin(val_t num_chars) {
-  printf("Unimplemented!\n");
-  error_handler(1);
-  return val_wrap_void();
+val_t spite_read_stdin(val_t num_chars) {
+  int64_t n = val_unwrap_int(num_chars);
+  // TODO: Free this at some point???
+  val_str_t *str = malloc(sizeof(val_str_t));
+  str->len = n;
+
+  if(fgets((char*)(str->codepoints), n, stdin) == NULL)
+    error_handler();
+
+  str->codepoints[n + 1] = '\0';
+
+  return val_wrap_str(str);
 }
 
 // file/sock, int -> string
-val_t read(val_t fs, val_t num_chars) {
-  printf("Unimplemented!\n");
-  error_handler(1);
-  return val_wrap_void();
+val_t spite_read(val_t fs, val_t num_chars) {
+  int64_t n = val_unwrap_int(num_chars);
+  int fd = val_unwrap_file(fs);
+  int64_t bytes_read = 0;
+  // TODO: Free this at some point???
+  val_str_t *str = malloc(sizeof(val_str_t));
+  str->len = n;
+
+  if((bytes_read = read(fd, (char*)(str->codepoints), n)) == -1)
+    error_handler();
+
+  // TODO: Does this work or...?
+  str->codepoints[bytes_read] = '\0';
+
+  return val_wrap_str(str);
 }
 
 // string -> void
-val_t write_stdout(val_t string) {
-  printf("Unimplemented!\n");
-  error_handler(1);
+val_t spite_write_stdout(val_t string) {
+  val_str_t *str = val_unwrap_str(string);
+
+  uint64_t n = str->len;
+  val_char_t *codepoints = str->codepoints;
+
+  //TODO: Replace printf with something better
+  printf("%.*s", (int) n, (char*)codepoints);
+
   return val_wrap_void();
 }
 
 // file/sock, string -> void
-val_t write(val_t fs, val_t string) {
-  printf("Unimplemented!\n");
-  error_handler(1);
+val_t spite_write(val_t fs, val_t string) {
+  int fd = val_unwrap_file(fs);
+  val_str_t *str = val_unwrap_str(string);
+
+  uint64_t n = str->len;
+  val_char_t *codepoints = str->codepoints;
+
+  int64_t bytes_wrote = 0;
+
+  //TODO: Replace printf with something better
+  if((bytes_wrote = write(fd, (char*)(str->codepoints), n)) == -1)
+    error_handler();
+
+  // free(str); TODO: ???
   return val_wrap_void();
 }
