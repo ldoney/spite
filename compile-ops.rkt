@@ -6,6 +6,7 @@
 (define eax 'eax) ; 32-bit load/store
 (define rbx 'rbx) ; heap
 (define rdi 'rdi) ; arg
+(define rsi 'rsi) ; arg 2
 (define r8  'r8)  ; scratch
 (define r9  'r9)  ; scratch
 (define r10 'r10) ; scratch
@@ -105,7 +106,25 @@
             (Jmp done)
             (Label zero)
             (Mov rax 0)
-            (Label done)))]))
+            (Label done)))]
+    ['close
+     (seq (%% "assert-file rax")
+          (Mov rdi rax)
+          pad-stack
+          (Call 'spite_close)
+          unpad-stack)]
+    ['read ;; One argument read does read from stdin
+     (seq (assert-integer rax)
+          (Mov rdi rax)
+          pad-stack
+          (Call 'spite_read_stdin)
+          unpad-stack)]
+    ['write ;; One argument write does write to stdout
+     (seq (assert-string rax)
+          (Mov rdi rax)
+          pad-stack
+          (Call 'spite_write_stdout)
+          unpad-stack)]))
 
 ;; Op2 -> Asm
 (define (compile-op2 p)
@@ -247,7 +266,34 @@
           (Add r8 rax)
           (Mov 'eax (Offset r8 8))
           (Sal rax char-shift)
-          (Or rax type-char))]))
+          (Or rax type-char))]
+    ['open
+     (seq (Pop rdi)
+          (%% "assert-file rdi")
+          (assert-char rax)
+          (Mov rsi rax)
+          pad-stack
+          (Call 'spite_open)
+          unpad-stack)]
+    ['read
+     (seq (Pop rdi)
+          (%% "assert-file rdi")
+          (assert-integer rax)
+          (Mov rsi rax)
+          pad-stack
+          (Call 'spite_open)
+          unpad-stack)]
+    ['write
+     (seq (Pop rdi)
+          (%% "assert-file rdi")
+          (assert-string rax)
+          (Mov rsi rax)
+          pad-stack
+          (Call 'spite_write)
+          unpad-stack)]))
+
+
+
 
 ;; Op3 -> Asm
 (define (compile-op3 p)

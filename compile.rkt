@@ -34,7 +34,14 @@
   (seq (Extern 'peek_byte)
        (Extern 'read_byte)
        (Extern 'write_byte)
-       (Extern 'raise_error)))
+       (Extern 'raise_error)
+       ;; Spite new externs
+       (Extern 'spite_open)
+       (Extern 'spite_close)
+       (Extern 'spite_read)
+       (Extern 'spite_read_stdin) ;; Aliased through parser to read
+       (Extern 'spite_write)
+       (Extern 'spite_write_stout))) ;; Aliased through parser to write
 
 ;; [Listof Defn] -> [Listof Id]
 (define (define-ids ds)
@@ -71,7 +78,7 @@
     (match l
       [(Lam f xs e)
        (let ((env  (append (reverse fvs) (reverse xs) (list #f))))
-         (seq (Label (symbol->label f))              
+         (seq (Label (symbol->label f))
               (Mov rax (Offset rsp (* 8 (length xs))))
               (Xor rax type-proc)
               (copy-env-to-stack fvs 8)

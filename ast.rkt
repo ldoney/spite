@@ -33,15 +33,15 @@
 ;;           | 'empty? | 'cons? | 'box?
 ;;           | 'vector? | 'vector-length
 ;;           | 'string? | 'string-length
-;;           | close    | read 
-;;           | write    | print 
-;;           | listen   | on-message 
+;;           | close    | read
+;;           | write    | print
+;;           | listen   | on-message
 ;;           | closed?
 ;; type Op2  = '+ | '- | '< | '=
 ;;           | 'cons
 ;;           | 'make-vector | 'vector-ref
 ;;           | 'make-string | 'string-ref
-;;           |  open        | read     
+;;           |  open        | read
 ;;           | write        | open-sock
 ;; type Op3  = 'vector-set!
 ;; type Pat  = (PVar Id)
