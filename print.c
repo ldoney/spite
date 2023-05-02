@@ -43,6 +43,9 @@ void print_result(val_t x)
   case T_PROC:
     printf("#<procedure>");
     break;
+  case T_FILE:
+    printf("File: %d", val_unwrap_file(x));
+    break;
   case T_INVALID:
     printf("internal error");
   }

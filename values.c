@@ -20,6 +20,8 @@ type_t val_typeof(val_t x)
     return T_INT;
   if ((char_type_mask & x) == char_type_tag)
     return T_CHAR;
+  if ((file_type_mask & x) == file_type_tag)
+    return T_FILE;
 
   switch (x) {
   case val_true:

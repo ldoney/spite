@@ -108,8 +108,7 @@
             (Mov rax 0)
             (Label done)))]
     ['close
-     (seq 
-          (assert-string rax)
+     (seq (assert-file rax)
           (Mov rdi rax)
           pad-stack
           (Call 'spite_close)
@@ -269,7 +268,8 @@
           (Sal rax char-shift)
           (Or rax type-char))]
     ['open ; TODO: Somehow this is wrong... throwing internal error
-     (seq (Pop rdi)
+     (seq (%% "Starting spite_open")
+          (Pop rdi)
           (assert-string rdi) ; WAS assert-file
           (assert-char rax)
           (Mov rsi rax)
@@ -282,7 +282,7 @@
           (assert-integer rax)
           (Mov rsi rax)
           pad-stack
-          (Call 'spite_open)
+          (Call 'spite_read)
           unpad-stack)]
     ['write
      (seq (Pop rdi)

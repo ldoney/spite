@@ -7,6 +7,7 @@
 
 #include <fcntl.h>
 #include <unistd.h>
+#include <uchar.h>
 
 val_t read_byte(void)
 {
@@ -51,14 +52,38 @@ val_t spite_close(val_t fs) {
 // string, char -> file
 val_t spite_open(val_t path, val_t flag) {
   //TODO: Implement some switch for sockets, this is for files
+  int64_t fd;
+  int oflags;
   val_str_t* p = val_unwrap_str(path);
   val_char_t f = val_unwrap_char(flag);
+
+  // setup oflags
+  switch (f) {
+    case 'r':
+      oflags = O_RDONLY;
+      break;
+    case 'w':
+      // Files will only be created with the w mode
+      oflags = O_WRONLY | O_CREAT;
+      break;
+    case 'a':
+      oflags = O_WRONLY | O_APPEND;
+      break;
+    default:
+      error_handler();
+  }
+
   p->codepoints[p->len] = '\0';
-  int64_t res = open((const char*) p->codepoints, f);
+  puts("Here is the file:");
+  puts((const char32_t*) p->codepoints);
+
+  if ((fd = open((const char*) p->codepoints, oflags)) == -1) {
+    perror("spite_open");
+    exit(-1);
+  }
 
   //TODO: do error handling!!!
-
-  return val_wrap_file(res);
+  return val_wrap_file(fd);
 }
 
 // int -> string
