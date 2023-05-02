@@ -334,14 +334,10 @@
          (Je l)
          (Mov rax (value->bits #f))
          (Label l))))
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 (define assert-file
-  (assert-type mask-file type-file)
-)
+  (assert-type mask-file type-file))
 (define assert-socket
-  (assert-type mask-socket type-socket)
-)
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  (assert-type mask-socket type-socket))
 (define assert-integer
   (assert-type mask-int type-int))
 (define assert-char

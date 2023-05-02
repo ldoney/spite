@@ -11,6 +11,8 @@
 (define type-proc      #b101)
 (define int-shift  (+ 1 imm-shift))
 (define char-shift (+ 2 imm-shift))
+(define file-shift (+ 2 char-shift))
+(define socket-shift (+ 2 char-shift))
 (define type-int      #b0000)
 (define mask-int      #b1111)
 (define type-char    #b01000)
