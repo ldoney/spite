@@ -7,7 +7,8 @@
 
 #include <fcntl.h>
 #include <unistd.h>
-#include <uchar.h>
+#include <wchar.h>
+#include <string.h>
 
 val_t read_byte(void)
 {
@@ -34,7 +35,31 @@ val_t write_byte(val_t c)
 // - Free stuff after malloc
 // - Close files when done
 // - Error handling when stuff goes wrong
+// - EOF handling
 // - Implement sockets (switch between the two)
+
+
+// Spite string to C string Given a spite string (UTF-32) (i think), converts
+// it to a multibyte character string. Will malloc more data than it needs, so
+// it should definitely be freed. This function assumes that wchar is 32 bits.
+char *stoc_str(val_char_t *s, uint64_t len) {
+  // Dirty solution here
+  if (sizeof(wchar_t) != 4) exit(2);
+
+  // Add a null byte on the end of our UTF-32 string
+  wchar_t *wcs = malloc((len+1) * sizeof(wchar_t));
+  wcsncpy(wcs, s, len);
+  wcs[len] = L'\0';
+  
+  // Safety allocation, assuming every UTF-32 character will need 4 bytes
+  int buf_size = ((len * 4) + 1) * sizeof(char); // Extra for NUL byte
+  char *mb = malloc(buf_size);
+
+  int bytes = wcstombs(mb, wcs, buf_size);
+
+  free(wcs);
+  return mb;
+}
 
 
 // file/sock -> bool
@@ -54,8 +79,12 @@ val_t spite_open(val_t path, val_t flag) {
   //TODO: Implement some switch for sockets, this is for files
   int64_t fd;
   int oflags;
+  mode_t mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
   val_str_t* p = val_unwrap_str(path);
   val_char_t f = val_unwrap_char(flag);
+
+  //TODO: Unallocate this buffer later
+  //This assumes that each codepoint takes one byte, 
 
   // setup oflags
   switch (f) {
@@ -73,16 +102,17 @@ val_t spite_open(val_t path, val_t flag) {
       error_handler();
   }
 
-  p->codepoints[p->len] = '\0';
-  puts("Here is the file:");
-  puts((const char32_t*) p->codepoints);
+  //p->codepoints[p->len] = '\0';
+  // Convert to C string
+  char *filename = stoc_str(p->codepoints, p->len);
 
-  if ((fd = open((const char*) p->codepoints, oflags)) == -1) {
+  if ((fd = open(filename, oflags, mode)) == -1) {
     perror("spite_open");
     exit(-1);
   }
 
   //TODO: do error handling!!!
+  free(filename);
   return val_wrap_file(fd);
 }
 
@@ -122,30 +152,24 @@ val_t spite_read(val_t fs, val_t num_chars) {
 // string -> void
 val_t spite_write_stdout(val_t string) {
   val_str_t *str = val_unwrap_str(string);
+  char *c_str = stoc_str(str->codepoints, str->len);
 
-  uint64_t n = str->len;
-  val_char_t *codepoints = str->codepoints;
+  fputs(c_str, stdout);
 
-  //TODO: Replace printf with something better
-  printf("%.*s", (int) n, (char*)codepoints);
-
+  free(c_str);
   return val_wrap_void();
 }
 
 // file/sock, string -> void
 val_t spite_write(val_t fs, val_t string) {
+  int64_t bytes_wrote;
   int fd = val_unwrap_file(fs);
   val_str_t *str = val_unwrap_str(string);
+  char *c_str = stoc_str(str->codepoints, str->len);
 
-  uint64_t n = str->len;
-  val_char_t *codepoints = str->codepoints;
-
-  int64_t bytes_wrote = 0;
-
-  //TODO: Replace printf with something better
-  if((bytes_wrote = write(fd, (char*)(str->codepoints), n)) == -1)
+  if((bytes_wrote = write(fd, c_str, strlen(c_str))) == -1)
     error_handler();
 
-  // free(str); TODO: ???
+  free(c_str);
   return val_wrap_void();
 }
