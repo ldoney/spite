@@ -62,6 +62,19 @@ char *stoc_str(val_char_t *s, uint64_t len) {
 }
 
 
+// C string to spite string. This function assumes that wchar is 32 bits.
+val_char_t *ctos_str(char *s, uint64_t len) {
+  // Dirty solution here
+  if (sizeof(wchar_t) != 4) exit(2);
+
+  int wc_buf_size = (len * 4) * sizeof(wchar_t); // NUL byte extra bit not necessary
+  wchar_t *wc = malloc(wc_buf_size);
+
+  size_t bytes = mbstowcs(wc, s, len);
+
+  return (val_char_t*) wc;
+}
+
 // file/sock -> bool
 val_t spite_close(val_t fs) {
   //TODO: Implement some switch for sockets, this is for files
@@ -111,7 +124,6 @@ val_t spite_open(val_t path, val_t flag) {
     exit(-1);
   }
 
-  //TODO: do error handling!!!
   free(filename);
   return val_wrap_file(fd);
 }
@@ -119,14 +131,17 @@ val_t spite_open(val_t path, val_t flag) {
 // int -> string
 val_t spite_read_stdin(val_t num_chars) {
   int64_t n = val_unwrap_int(num_chars);
-  // TODO: Free this at some point???
+  char cstr[n + 1]; // +1 to include NUL byte
+
+  if(fgets(cstr, n + 1, stdin) == NULL) {
+    perror("spite_read_stdin");
+    exit(-1);
+  }
+
   val_str_t *str = malloc(sizeof(val_str_t));
+  wmemcpy(str->codepoints, ctos_str(cstr, n), n);
+
   str->len = n;
-
-  if(fgets((char*)(str->codepoints), n, stdin) == NULL)
-    error_handler();
-
-  str->codepoints[n + 1] = '\0';
 
   return val_wrap_str(str);
 }
@@ -135,16 +150,20 @@ val_t spite_read_stdin(val_t num_chars) {
 val_t spite_read(val_t fs, val_t num_chars) {
   int64_t n = val_unwrap_int(num_chars);
   int fd = val_unwrap_file(fs);
+  char cstr[n];
+  val_char_t *codepoints;
   int64_t bytes_read = 0;
   // TODO: Free this at some point???
+
+  if((bytes_read = read(fd, cstr, n)) == -1) {
+    perror("spite_read");
+    exit(-1);
+  } 
+
   val_str_t *str = malloc(sizeof(val_str_t));
+  wmemcpy(str->codepoints, ctos_str(cstr, n), n);
+
   str->len = n;
-
-  if((bytes_read = read(fd, (char*)(str->codepoints), n)) == -1)
-    error_handler();
-
-  // TODO: Does this work or...?
-  str->codepoints[bytes_read] = '\0';
 
   return val_wrap_str(str);
 }

@@ -41,7 +41,7 @@
        (Extern 'spite_read)
        (Extern 'spite_read_stdin) ;; Aliased through parser to read
        (Extern 'spite_write)
-       (Extern 'spite_write_stout))) ;; Aliased through parser to write
+       (Extern 'spite_write_stdout))) ;; Aliased through parser to write
 
 ;; [Listof Defn] -> [Listof Id]
 (define (define-ids ds)
