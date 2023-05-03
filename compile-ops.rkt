@@ -114,7 +114,7 @@
           (Call 'spite_close)
           unpad-stack)]
     ['read ;; One argument read does read from stdin
-     (seq (assert-integer rax)
+     (seq (assert-natural rax)
           (Mov rdi rax)
           pad-stack
           (Call 'spite_read_stdin)
@@ -267,7 +267,7 @@
           (Mov 'eax (Offset r8 8))
           (Sal rax char-shift)
           (Or rax type-char))]
-    ['open ; TODO: Somehow this is wrong... throwing internal error
+    ['open
      (seq (%% "Starting spite_open")
           (Pop rdi)
           (assert-string rdi) ; WAS assert-file
@@ -279,7 +279,7 @@
     ['read
      (seq (Pop rdi)
           (assert-file rdi)
-          (assert-integer rax)
+          (assert-natural rax)
           (Mov rsi rax)
           pad-stack
           (Call 'spite_read)

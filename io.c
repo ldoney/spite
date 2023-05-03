@@ -138,11 +138,15 @@ val_t spite_read_stdin(val_t num_chars) {
     exit(-1);
   }
 
-  val_str_t *str = malloc(sizeof(val_str_t));
-  wmemcpy(str->codepoints, ctos_str(cstr, n), n);
+  // Concert string to spite string
+  wchar_t *sstr = ctos_str(cstr, n);
 
+  // Allocate space for our struct
+  val_str_t *str = malloc(sizeof(uint64_t) + (n*sizeof(wchar_t)));
   str->len = n;
+  wmemcpy(str->codepoints, sstr, n);
 
+  free(sstr);
   return val_wrap_str(str);
 }
 
@@ -152,19 +156,18 @@ val_t spite_read(val_t fs, val_t num_chars) {
   int fd = val_unwrap_file(fs);
   char cstr[n];
   val_char_t *codepoints;
-  int64_t bytes_read = 0;
-  // TODO: Free this at some point???
 
-  if((bytes_read = read(fd, cstr, n)) == -1) {
+  if(read(fd, cstr, n) == -1) {
     perror("spite_read");
     exit(-1);
   } 
 
-  val_str_t *str = malloc(sizeof(val_str_t));
-  wmemcpy(str->codepoints, ctos_str(cstr, n), n);
-
+  wchar_t *sstr = ctos_str(cstr, n);
+  val_str_t *str = malloc(sizeof(uint64_t) + (n*sizeof(wchar_t)));
+  wmemcpy(str->codepoints, sstr, n);
   str->len = n;
 
+  free(sstr);
   return val_wrap_str(str);
 }
 
@@ -181,12 +184,12 @@ val_t spite_write_stdout(val_t string) {
 
 // file/sock, string -> void
 val_t spite_write(val_t fs, val_t string) {
-  int64_t bytes_wrote;
   int fd = val_unwrap_file(fs);
   val_str_t *str = val_unwrap_str(string);
   char *c_str = stoc_str(str->codepoints, str->len);
+  //TODO: do we need to trim off NUL byte here?
 
-  if((bytes_wrote = write(fd, c_str, strlen(c_str))) == -1)
+  if(write(fd, c_str, strlen(c_str)) == -1)
     error_handler();
 
   free(c_str);
