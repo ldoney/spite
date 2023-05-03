@@ -104,7 +104,7 @@
     [(Prim2 p e1 e2)    (compile-prim2 p e1 e2 c)]
     [(Prim3 p e1 e2 e3) (compile-prim3 p e1 e2 e3 c)]
     [(If e1 e2 e3)      (compile-if e1 e2 e3 c t?)]
-    [(Begin e1 e2)      (compile-begin e1 e2 c t?)]
+    [(Begin es)         (compile-begin es c t?)]
     [(Let x e1 e2)      (compile-let x e1 e2 c t?)]
     [(App e es)         (compile-app e es c t?)]
     [(Lam f xs e)       (compile-lam f xs e c)]
@@ -180,9 +180,11 @@
          (Label l2))))
 
 ;; Expr Expr CEnv Bool -> Asm
-(define (compile-begin e1 e2 c t?)
-  (seq (compile-e e1 c #f)
-       (compile-e e2 c t?)))
+(define (compile-begin es c t?)
+  (match es
+    ['() (seq)]
+    [(cons e rst) (seq (compile-e e c (and (empty? rst) t?))
+                       (compile-begin rst c t?))]))
 
 ;; Id Expr Expr CEnv Bool -> Asm
 (define (compile-let x e1 e2 c t?)
