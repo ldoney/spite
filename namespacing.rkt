@@ -26,7 +26,7 @@
                                      (append-name-to-symbol name x) 
                                      x))]
       [(If e1 e2 e3)      (If      (r e1) (r e2) (r e3))]
-      [(Begin e1 e2)      (Begin   (r e1) (r e2))]
+      [(Begin es)      (Begin   (map r es))]
       [(Let x e1 e2)      (Let     (append-name-to-symbol name x) (r e1) (r e2))]
       [(App e1 es)        (App     (r e1) (map r es))]
       [(Lam f xs e1)      (Lam     f xs (replace-in-namespace name (remq* xs fvs) e1))]

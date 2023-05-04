@@ -181,7 +181,5 @@
         (begin 
           (close-input-port f)
           (match (parse-lib cur-includes res)
-            [(Lib "" ds depend) (Lib (car (string-split file-name ".rkt")) ds depend)]
+            [(Lib "" ds depend) (Lib (last (string-split (car (string-split file-name ".rkt")) "/")) ds depend)]
             [x x]))))))
-
-
