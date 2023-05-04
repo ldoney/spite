@@ -46,7 +46,7 @@
 (define (parse-include s)
   (match s
     [(list 'include f-name)
-      (Include f-name (car (string-split f-name ".rkt")))]
+      (Include f-name (last (string-split (car (string-split f-name ".rkt")) "/")))]
     [(list 'as name s)
      (match (parse-include s)
       [(Include f-name _) (Include f-name name)])]))
