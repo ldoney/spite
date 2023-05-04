@@ -1,38 +1,42 @@
 #lang racket
-(provide parse parse-define parse-e)
-(require "ast.rkt")
+(provide parse parse-define parse-raw parse-e)
+(require "ast.rkt" "util.rkt")
 
 ;; [Listof S-Expr] -> Prog
 (define (parse s)
-  (match s ; TODO Figure out a better way to write include and include qualifiers... a lot of duplicated code 
-    [(cons (list 'include i) s) 
-      (match (parse-include i)
-        [(Lib name ds depend)
-         (match (parse s)
-           [(Prog p-ds libs e)
-            (Prog p-ds (append-nodupes (cons-nodupes (Lib name ds (strip-defns depend)) depend) libs) e)])])]
-    [(cons (list 'as name (list 'include i)) s) 
-      (match (parse-include i)
-        [(Lib _ ds depend)
-         (match (parse s)
-           [(Prog p-ds libs e)
-            (Prog p-ds (append-nodupes (cons-nodupes (Lib name ds (strip-defns depend)) depend) libs) e)])])]
+  (match (parse-raw s)
+    [(RawProg ds includes e) (Prog ds (parse-includes includes) e)]))
+
+(define (parse-raw s) 
+  (match s
+    [(cons (and (cons (or 'include 'as) _) i) s) 
+      (match (parse-raw s)
+        [(RawProg p-ds incls e)
+        (RawProg p-ds (cons (parse-include i) incls) e)])]
     [(cons (and (cons 'define _) d) s)
-     (match (parse s)
-       [(Prog ds libs e)
-        (Prog (cons (parse-define d) ds) libs e)])]
-    [(cons e '()) (Prog '() '() (parse-e e))]
+     (match (parse-raw s)
+       [(RawProg ds incls e)
+        (RawProg (cons (parse-define d) ds) incls e)])]
+    [(cons e '()) (RawProg '() '() (parse-e e))]
     [_ (error "program parse error")]))
 
-; Lib (ListOf Lib) -> (ListOf Lib)
-(define (cons-nodupes lib lst2)
-  (if (in-liblist lib lst2) lst2 (cons lib lst2)))
+; [Listof Include] -> [Listof Lib]
+(define (parse-includes includes)
+  (match includes
+    ['() '()]
+    [(cons (Include file name) rst) (cons-nodupes in-liblist
+                                      (match (process-include file)
+                                        [(Lib _ l-ds l-deps) (Lib name l-ds l-deps)]) 
+                                      (parse-includes rst))]))
 
-; (ListOf Lib) (ListOf Lib) -> (ListOf Lib)
-(define (append-nodupes lst1 lst2)
-  (match lst2
-    ['() lst1]
-    [(cons lib rst2) (if (in-liblist lib lst2) (append-nodupes lst1 rst2) (cons lib (append-nodupes lst1 rst2)))]))
+; [Listof S-Expr] -> Include
+(define (parse-include s)
+  (match s
+    [(list 'include f-name)
+      (Include f-name (car (string-split f-name ".rkt")))]
+    [(list 'as name s)
+     (match (parse-include s)
+      [(Include f-name _) (Include f-name name)])]))
 
 (define (in-liblist lib lst)
   (match lib
@@ -48,7 +52,7 @@
     [(cons (Lib n ds d) rst) (Lib n '() '())]))
 
 ;; String -> Lib
-(define (parse-include file-name) 
+(define (process-include file-name) 
   (let ((f (open-input-file file-name)))
     (begin
       (read-line f)
