@@ -1,5 +1,5 @@
 #lang racket
-(require "ast.rkt")
+(require "ast.rkt" "namespacing.rkt")
 (provide lambdas)
 
 
@@ -8,7 +8,7 @@
 (define (lambdas p)
   (match p
     [(Prog ds libs e)
-     (append (lambdas-ds ds) (lambdas-e e))]))
+     (append (lambdas-ds (merge-ds-libs ds libs)) (lambdas-e e))]))
 
 ;; Defns -> [Listof Lam]
 ;; List all of the lambda expressions in ds

@@ -1,6 +1,6 @@
 #lang racket
 (provide (all-defined-out))
-(require "ast.rkt" "types.rkt" "lambdas.rkt" "fv.rkt" "compile-ops.rkt" a86/ast)
+(require "ast.rkt" "types.rkt" "lambdas.rkt" "fv.rkt" "compile-ops.rkt" "namespacing.rkt" a86/ast)
 
 ;; Registers used
 (define rax 'rax) ; return
@@ -30,34 +30,6 @@
             (Label 'raise_error_align)
             pad-stack
             (Call 'raise_error)))]))
-
-(define (attach-name name d)
-  (match d
-    [(Defn f xs e) (Defn (append-name-to-symbol name f) (map (lambda (x) (append-name-to-symbol name x)) xs) (replace-in-namespace name e))]))
-
-(define (append-name-to-symbol name x)
-  (string->symbol (string-append name ":" (symbol->string x))))
-
-(define (replace-in-namespace name e)
-  (match e
-    [(Prim1 p e)        (Prim1 p (replace-in-namespace name e))]
-    [(Prim2 p e1 e2)    (Prim2 p (replace-in-namespace name e1) (replace-in-namespace name e2))]
-    [(Prim3 p e1 e2 e3) (Prim2 p (replace-in-namespace name e1) (replace-in-namespace name e2) (replace-in-namespace name e3))]
-    [(Var x)            (Var     (if (string-contains? (symbol->string x) ":") x (append-name-to-symbol name x)))]
-    [(If e1 e2 e3)      (If      (replace-in-namespace name e1) (replace-in-namespace name e2) (replace-in-namespace name e3))]
-    [(Begin e1 e2)      (Begin   (replace-in-namespace name e1) (replace-in-namespace name e2))]
-    [(Let x e1 e2)      (Let     (append-name-to-symbol name x) (replace-in-namespace name e1) (replace-in-namespace name e1))]
-    [(App e1 es)        (App     (replace-in-namespace name e1) (map replace-in-namespace name es))]
-    [(Lam f xs e1)      (Lam     f (map (lambda (x) (append-name-to-symbol name x)) xs) (replace-in-namespace e1))]
-    [(Match e ps es)    (Match   (replace-in-namespace name e) ps (map replace-in-namespace name es))]
-    [_                  '()]))
-
-(define (merge-ds-libs ds libs)
-  (match libs
-    ['() ds]
-    [(cons (Lib name lib-ds depend) rst) 
-      (append (map (lambda (x) (attach-name name x)) lib-ds)
-              (merge-ds-libs ds rst))]))
 
 (define (externs)
   (seq (Extern 'peek_byte)
