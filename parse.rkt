@@ -1,27 +1,11 @@
 #lang racket
-(provide parse parse-define parse-raw parse-e flatten-libs remove-dupes)
+(provide parse parse-define parse-raw parse-e)
 (require "ast.rkt" "util.rkt")
 
 ;; [Listof S-Expr] -> Prog
 (define (parse s)
   (match (parse-raw s)
-    [(RawProg ds includes e) (Prog ds (remove-dupes (flatten-libs (parse-includes includes))) e)]))
-
-; [Listof Lib] -> [Listof Lib]
-(define (remove-dupes lst)
-  (match lst 
-    ['() '()]
-    [(cons l rst) 
-     (cons l (remove-dupes (filter 
-              (lambda (e) (not (libs-equal l e))) 
-              rst)))]))
-
-; Lib | [Listof Lib] -> [Listof Lib]
-(define (flatten-libs lst)
-  (match lst 
-    ['() '()]
-    [(Lib name ds deps) (cons (Lib name ds (strip-defns deps)) (flatten-libs deps))]
-    [(cons l rst) (append (flatten-libs l) (flatten-libs rst))]))
+    [(RawProg ds includes e) (Prog ds (remove-dupes (flatten-libs (includes->libs '() includes))) e)]))
 
 ;; [Listof S-Expr] -> RawProg
 (define (parse-raw s) 
@@ -37,64 +21,26 @@
     [(cons e '()) (RawProg '() '() (parse-e e))]
     [_ (error "program parse error")]))
 
-; [Listof Include] -> [Listof Lib]
-(define (parse-includes includes)
-  (match includes
-    ['() '()]
-    [(cons (Include file name) rst) (cons-nodupes libs-equal 
-                                      (match (process-include file)
-                                        [(Lib _ l-ds l-deps) (Lib name l-ds l-deps)]) 
-                                      (parse-includes rst))]))
-
-; Lib Lib -> Bool
-(define (libs-equal lib1 lib2)
-  (match lib1
-    [(Lib name1 _ _)
-     (match lib2
-       [(Lib name2 _ _) (equal? name1 name2)])]))
-
-; Lib -> Lib
-(define (strip-defns depends)
-  (match depends
-    ['() '()]
-    [(cons (Lib n ds d) rst) (Lib n '() '())]))
-
-;; String -> Lib
-(define (process-include file-name) 
-  (let ((f (open-input-file file-name)))
-    (begin
-      (read-line f)
-      (let ((res (read-all-file f)))
-        (begin 
-          (close-input-port f)
-          (match (parse-lib res)
-            [(Lib "" ds depend) (Lib (car (string-split file-name ".rkt")) ds depend)]
-            [x x]))))))
-
-;; String [Listof S-Expr] -> Lib
-(define (parse-lib s)
+;; [Listof S-Expr] [Listof Include] -> Lib
+(define (parse-lib cur-includes s)
+  (define (get-name i)
+    (match i
+      [(Include file-name name) name]))
   (match s
     [(cons (and (cons (or 'include 'as) _) i) s) 
-     (match (parse-lib s)
+     (match (parse-lib cur-includes s)
        [(Lib l-name l-ds l-depend)
         (match (parse-include i) 
                [(Include file-name name) 
-                (Lib l-name l-ds (cons (process-include file-name) l-depend))])])] ; TODO Deal with infinitely looping defines
+                (Lib l-name l-ds (if (in-list? equal? name (map get-name cur-includes))
+                                     l-depend
+                                     (cons (process-include (cons (Include file-name name) cur-includes) file-name) l-depend)))])])]
     [(cons (and (cons 'define _) d) s)
-     (match (parse-lib s)
+     (match (parse-lib cur-includes s)
        [(Lib name ds depend)
         (Lib name (cons (parse-define d) ds) depend)])]
     [_ (Lib "" '() '())])) ; How would a library get malformed? We should figure out data handling...
 
-
-; So supposedly racket is actually really good
-; at reading LISP-formatted stuff. If it's properly parenthesized, 
-; racket takes it all out automatically which is pretty cool
-(define (read-all-file f)
-  (let ((e (read f))) 
-    (if (eof-object? e) 
-      '()
-      (cons e (read-all-file f)))))
 
 ; S-Expr -> Include
 (define (parse-include s)
@@ -104,7 +50,6 @@
     [(list 'as name s)
      (match (parse-include s)
       [(Include f-name _) (Include f-name name)])]))
-
 
 ;; S-Expr -> Defn
 (define (parse-define s)
@@ -190,3 +135,54 @@
   (λ (x)
     (and (symbol? x)
          (memq x ops))))
+
+; [Listof Lib] -> [Listof Lib]
+(define (remove-dupes lst)
+  (match lst 
+    ['() '()]
+    [(cons l rst) 
+     (cons l (remove-dupes (filter 
+              (lambda (e) (not (libs-equal l e))) 
+              rst)))]))
+
+; Lib | [Listof Lib] -> [Listof Lib]
+(define (flatten-libs lst)
+  (define (strip-defns depends)
+    (match depends
+      ['() '()]
+      [(cons (Lib n ds d) rst) (Lib n '() '())]))
+  (match lst 
+    ['() '()]
+    [(Lib name ds deps) (cons (Lib name ds (strip-defns deps)) (flatten-libs deps))]
+    [(cons l rst) (append (flatten-libs l) (flatten-libs rst))]))
+
+
+; [ListOf Include] [Listof Include] -> [Listof Lib]
+(define (includes->libs cur-includes includes)
+  (match includes
+    ['() '()]
+    [(cons (Include file name) rst) (cons-nodupes libs-equal 
+                                      (match (process-include cur-includes file)
+                                        [(Lib _ l-ds l-deps) (Lib name l-ds l-deps)]) 
+                                      (includes->libs cur-includes rst))]))
+
+; Lib Lib -> Bool
+(define (libs-equal lib1 lib2)
+  (match lib1
+    [(Lib name1 _ _)
+     (match lib2
+       [(Lib name2 _ _) (equal? name1 name2)])]))
+
+;; [Listof Include] String -> Lib
+(define (process-include cur-includes file-name) 
+  (let ((f (open-input-file file-name)))
+    (begin
+      (read-line f)
+      (let ((res (read-all-file f)))
+        (begin 
+          (close-input-port f)
+          (match (parse-lib cur-includes res)
+            [(Lib "" ds depend) (Lib (car (string-split file-name ".rkt")) ds depend)]
+            [x x]))))))
+
+

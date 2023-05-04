@@ -13,10 +13,18 @@
                          (append-nodupes eq lst1 rst2) 
                          (cons lib (append-nodupes eq lst1 rst2)))]))
 
-; ((Fun T V) -> Bool) List T -> List
-(define (in-list? eq value lst)
- (cond
-  ['() #f]
-  [(eq (car lst) value) #t]
-  [else (in-list? eq (cdr lst) value)]))
+; ((Fun T V) -> Bool) T List -> Bool 
+(define (in-list? cond? value lst)
+  (match lst
+    ['() #f]
+    [(cons h rst) (if (cond? value h)
+                      #t
+                      (in-list? cond? value rst))]))
+
+
+(define (read-all-file f)
+  (let ((e (read f))) 
+    (if (eof-object? e) 
+      '()
+      (cons e (read-all-file f)))))
 
