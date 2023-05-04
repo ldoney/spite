@@ -7,7 +7,7 @@
 ;; List all of the lambda expressions in p
 (define (lambdas p)
   (match p
-    [(Prog ds e)
+    [(Prog ds libs e)
      (append (lambdas-ds ds) (lambdas-e e))]))
 
 ;; Defns -> [Listof Lam]

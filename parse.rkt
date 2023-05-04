@@ -4,53 +4,83 @@
 
 ;; [Listof S-Expr] -> Prog
 (define (parse s)
-  (match s
-    [(cons (and (cons 'include _) i) s) 
-      (match (parse s)
-        [(Prog ds e)
-         (Prog (append (parse-include i) ds) e)])]
+  (match s ; TODO Figure out a better way to write include and include qualifiers... a lot of duplicated code 
+    [(cons (list 'include i) s) 
+      (match (parse-include i)
+        [(Lib name ds depend)
+         (match (parse s)
+           [(Prog p-ds libs e)
+            (Prog p-ds (append-nodupes (cons-nodupes (Lib name ds (strip-defns depend)) depend) libs) e)])])]
+    [(cons (list 'as name (list 'include i)) s) 
+      (match (parse-include i)
+        [(Lib _ ds depend)
+         (match (parse s)
+           [(Prog p-ds libs e)
+            (Prog p-ds (append-nodupes (cons-nodupes (Lib name ds (strip-defns depend)) depend) libs) e)])])]
     [(cons (and (cons 'define _) d) s)
      (match (parse s)
-       [(Prog ds e)
-        (Prog (cons (parse-define d) ds) e)])]
-    [(cons e '()) (Prog '() (parse-e e))]
+       [(Prog ds libs e)
+        (Prog (cons (parse-define d) ds) libs e)])]
+    [(cons e '()) (Prog '() '() (parse-e e))]
     [_ (error "program parse error")]))
 
-(define (parse-include i) 
-  (match i
-    [(list 'include file-name)
-     (let ((f (open-input-file file-name)))
-       (begin
-         (read-line f)
-         (let ((res (include-from-file f)))
-           (begin 
-             (close-input-port f)
-             (match (parse-lib res)
-               [(Lib name ds) ds])))))]
-    [_ (error "parse include error" i)]))
+; Lib (ListOf Lib) -> (ListOf Lib)
+(define (cons-nodupes lib lst2)
+  (if (in-liblist lib lst2) lst2 (cons lib lst2)))
 
-;; [Listof S-Expr] -> Lib
+; (ListOf Lib) (ListOf Lib) -> (ListOf Lib)
+(define (append-nodupes lst1 lst2)
+  (match lst2
+    ['() lst1]
+    [(cons lib rst2) (if (in-liblist lib lst2) (append-nodupes lst1 rst2) (cons lib (append-nodupes lst1 rst2)))]))
+
+(define (in-liblist lib lst)
+  (match lib
+    [(Lib needle-name needle-ds needle-depend)
+      (match lst
+        ['() #f]
+        [(cons (Lib name ds depend) rst) (if (equal? name needle-name) #t (in-liblist lib lst))])]))
+
+; Lib -> Lib
+(define (strip-defns depends)
+  (match depends
+    ['() '()]
+    [(cons (Lib n ds d) rst) (Lib n '() '())]))
+
+;; String -> Lib
+(define (parse-include file-name) 
+  (let ((f (open-input-file file-name)))
+    (begin
+      (read-line f)
+      (let ((res (read-all-file f)))
+        (begin 
+          (close-input-port f)
+          (match (parse-lib res)
+            [(Lib "" ds depend) (Lib (car (string-split file-name ".rkt")) ds depend)]
+            [x x]))))))
+
+;; String [Listof S-Expr] -> Lib
 (define (parse-lib s)
   (match s
-    [(cons (and (cons 'include _) i) s) 
+    [(cons (list 'include i) s)  ;TODO Make includes be able to also include.. right now it doesn't work
       (match (parse-lib s)
-        [(Lib "default" ds)
-         (Lib "default" (append (parse-include i) ds))])]
+        [(Lib name ds depend)
+         (Lib name ds (cons (parse-include i) depend))])]
     [(cons (and (cons 'define _) d) s)
      (match (parse-lib s)
-       [(Lib "default" ds)
-        (Lib "default" (cons (parse-define d) ds))])]
-    [_ (Lib "default" '())])) ; How would a library get malformed? Figure this out...
+       [(Lib name ds depend)
+        (Lib name (cons (parse-define d) ds) depend)])]
+    [_ (Lib "" '() '())])) ; How would a library get malformed? We should figure out data handling...
 
 
 ; So supposedly racket is actually really good
 ; at reading LISP-formatted stuff. If it's properly parenthesized, 
 ; racket takes it all out automatically which is pretty cool
-(define (include-from-file f)
+(define (read-all-file f)
   (let ((e (read f))) 
     (if (eof-object? e) 
       '()
-      (cons e (include-from-file f)))))
+      (cons e (read-all-file f)))))
 
 ;; S-Expr -> Defn
 (define (parse-define s)

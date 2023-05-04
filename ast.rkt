@@ -1,11 +1,11 @@
 #lang racket
 (provide (all-defined-out))
 
-;; type Prog = (Prog (Listof Defn) Expr)
-(struct Prog (ds e) #:prefab)
+;; type Prog = (Prog (Listof Defn) (ListOf Lib) Expr)
+(struct Prog (ds libs e) #:prefab)
 
-;; type Lib = (Lib (Listof Defn))
-(struct Lib (name ds) #:prefab)
+;; type Lib = (Lib String (Listof Defn) (ListOf Lib))
+(struct Lib (name ds deps) #:prefab)
 
 ;; type Defn = (Defn Id (Listof Id) Expr)
 (struct Defn (f xs e) #:prefab)
