@@ -4,6 +4,9 @@
 ;; type Prog = (Prog (Listof Defn) Expr)
 (struct Prog (ds e) #:prefab)
 
+;; type Lib = (Lib (Listof Defn))
+(struct Lib (name ds) #:prefab)
+
 ;; type Defn = (Defn Id (Listof Id) Expr)
 (struct Defn (f xs e) #:prefab)
 

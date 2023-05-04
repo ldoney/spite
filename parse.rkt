@@ -5,12 +5,52 @@
 ;; [Listof S-Expr] -> Prog
 (define (parse s)
   (match s
+    [(cons (and (cons 'include _) i) s) 
+      (match (parse s)
+        [(Prog ds e)
+         (Prog (append (parse-include i) ds) e)])]
     [(cons (and (cons 'define _) d) s)
      (match (parse s)
        [(Prog ds e)
         (Prog (cons (parse-define d) ds) e)])]
     [(cons e '()) (Prog '() (parse-e e))]
     [_ (error "program parse error")]))
+
+(define (parse-include i) 
+  (match i
+    [(list 'include file-name)
+     (let ((f (open-input-file file-name)))
+       (begin
+         (read-line f)
+         (let ((res (include-from-file f)))
+           (begin 
+             (close-input-port f)
+             (match (parse-lib res)
+               [(Lib name ds) ds])))))]
+    [_ (error "parse include error" i)]))
+
+;; [Listof S-Expr] -> Lib
+(define (parse-lib s)
+  (match s
+    [(cons (and (cons 'include _) i) s) 
+      (match (parse-lib s)
+        [(Lib "default" ds)
+         (Lib "default" (append (parse-include i) ds))])]
+    [(cons (and (cons 'define _) d) s)
+     (match (parse-lib s)
+       [(Lib "default" ds)
+        (Lib "default" (cons (parse-define d) ds))])]
+    [_ (Lib "default" '())])) ; How would a library get malformed? Figure this out...
+
+
+; So supposedly racket is actually really good
+; at reading LISP-formatted stuff. If it's properly parenthesized, 
+; racket takes it all out automatically which is pretty cool
+(define (include-from-file f)
+  (let ((e (read f))) 
+    (if (eof-object? e) 
+      '()
+      (cons e (include-from-file f)))))
 
 ;; S-Expr -> Defn
 (define (parse-define s)
