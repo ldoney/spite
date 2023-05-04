@@ -22,7 +22,7 @@
       [(Prim3 p e1 e2 e3) (Prim2 p (r e1) (r e2) (r e3))]
       [(Var x)            (Var     (if (and 
                                          (not (string-contains? (symbol->string x) ":")) 
-                                         (is-in-list equal? fvs x)) 
+                                         (in-list? equal? x fvs)) 
                                      (append-name-to-symbol name x) 
                                      x))]
       [(If e1 e2 e3)      (If      (r e1) (r e2) (r e3))]

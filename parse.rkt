@@ -1,12 +1,29 @@
 #lang racket
-(provide parse parse-define parse-raw parse-e)
+(provide parse parse-define parse-raw parse-e flatten-libs remove-dupes)
 (require "ast.rkt" "util.rkt")
 
 ;; [Listof S-Expr] -> Prog
 (define (parse s)
   (match (parse-raw s)
-    [(RawProg ds includes e) (Prog ds (parse-includes includes) e)]))
+    [(RawProg ds includes e) (Prog ds (remove-dupes (flatten-libs (parse-includes includes))) e)]))
 
+; [Listof Lib] -> [Listof Lib]
+(define (remove-dupes lst)
+  (match lst 
+    ['() '()]
+    [(cons l rst) 
+     (cons l (remove-dupes (filter 
+              (lambda (e) (not (libs-equal l e))) 
+              rst)))]))
+
+; Lib | [Listof Lib] -> [Listof Lib]
+(define (flatten-libs lst)
+  (match lst 
+    ['() '()]
+    [(Lib name ds deps) (cons (Lib name ds (strip-defns deps)) (flatten-libs deps))]
+    [(cons l rst) (append (flatten-libs l) (flatten-libs rst))]))
+
+;; [Listof S-Expr] -> RawProg
 (define (parse-raw s) 
   (match s
     [(cons (and (cons (or 'include 'as) _) i) s) 
@@ -24,26 +41,17 @@
 (define (parse-includes includes)
   (match includes
     ['() '()]
-    [(cons (Include file name) rst) (cons-nodupes in-liblist
+    [(cons (Include file name) rst) (cons-nodupes libs-equal 
                                       (match (process-include file)
                                         [(Lib _ l-ds l-deps) (Lib name l-ds l-deps)]) 
                                       (parse-includes rst))]))
 
-; [Listof S-Expr] -> Include
-(define (parse-include s)
-  (match s
-    [(list 'include f-name)
-      (Include f-name (car (string-split f-name ".rkt")))]
-    [(list 'as name s)
-     (match (parse-include s)
-      [(Include f-name _) (Include f-name name)])]))
-
-(define (in-liblist lib lst)
-  (match lib
-    [(Lib needle-name needle-ds needle-depend)
-      (match lst
-        ['() #f]
-        [(cons (Lib name ds depend) rst) (if (equal? name needle-name) #t (in-liblist lib lst))])]))
+; Lib Lib -> Bool
+(define (libs-equal lib1 lib2)
+  (match lib1
+    [(Lib name1 _ _)
+     (match lib2
+       [(Lib name2 _ _) (equal? name1 name2)])]))
 
 ; Lib -> Lib
 (define (strip-defns depends)
@@ -66,10 +74,12 @@
 ;; String [Listof S-Expr] -> Lib
 (define (parse-lib s)
   (match s
-    [(cons (list 'include i) s)  ;TODO Make includes be able to also include.. right now it doesn't work
-      (match (parse-lib s)
-        [(Lib name ds depend)
-         (Lib name ds (cons (parse-include i) depend))])]
+    [(cons (and (cons (or 'include 'as) _) i) s) 
+     (match (parse-lib s)
+       [(Lib l-name l-ds l-depend)
+        (match (parse-include i) 
+               [(Include file-name name) 
+                (Lib l-name l-ds (cons (process-include file-name) l-depend))])])] ; TODO Deal with infinitely looping defines
     [(cons (and (cons 'define _) d) s)
      (match (parse-lib s)
        [(Lib name ds depend)
@@ -85,6 +95,16 @@
     (if (eof-object? e) 
       '()
       (cons e (read-all-file f)))))
+
+; S-Expr -> Include
+(define (parse-include s)
+  (match s
+    [(list 'include f-name)
+      (Include f-name (car (string-split f-name ".rkt")))]
+    [(list 'as name s)
+     (match (parse-include s)
+      [(Include f-name _) (Include f-name name)])]))
+
 
 ;; S-Expr -> Defn
 (define (parse-define s)
