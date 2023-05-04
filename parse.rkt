@@ -36,8 +36,7 @@
     [(list (? (op? op2) p2) e1 e2) (Prim2 p2 (parse-e e1) (parse-e e2))]
     [(list (? (op? op3) p3) e1 e2 e3)
      (Prim3 p3 (parse-e e1) (parse-e e2) (parse-e e3))]
-    [(list 'begin e1 e2)
-     (Begin (parse-e e1) (parse-e e2))]
+    [(list 'begin es ...)          (Begin (map parse-e es))]
     [(list 'if e1 e2 e3)
      (If (parse-e e1) (parse-e e2) (parse-e e3))]
     [(list 'let (list (list (? symbol? x) e1)) e2)
