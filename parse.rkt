@@ -43,6 +43,10 @@
      (Let x (parse-e e1) (parse-e e2))]
     [(cons 'match (cons e ms))
      (parse-match (parse-e e) ms)]
+    [(list 'cond clist ... [list 'else el])
+     (Cond (parse-clist clist) (parse-e el))]
+    [(list 'case expr clist ... [list 'else el])
+     (Case (parse-e expr) (parse-clist-datum clist) (parse-e el))]
     [(list (or 'lambda 'λ) xs e)
      (if (and (list? xs)
               (andmap symbol? xs))
@@ -51,6 +55,22 @@
     [(cons e es)
      (App (parse-e e) (map parse-e es))]    
     [_ (error "Parse error" s)]))
+
+(define (parse-clist-datum clist)
+  (match clist
+    ['() '()]
+    [(cons (list (? list? p) b) lst) 
+     (cons (Clause p (parse-e b)) 
+           (parse-clist-datum lst))]
+    [_ (error "Parse error")]))
+
+(define (parse-clist clist)
+  (match clist
+    ['() '()]
+    [(cons (list p b) lst) 
+     (cons (Clause (parse-e p) (parse-e b)) 
+           (parse-clist lst))]
+    [_ (error "parse error")]))
 
 (define (parse-match e ms)
   (match ms
@@ -85,7 +105,9 @@
   '(add1 sub1 zero? char? write-byte eof-object?
          integer->char char->integer
          box unbox empty? cons? box? car cdr
-         vector? vector-length string? string-length))
+         vector? vector-length string? string-length
+         abs not -))
+
 (define op2
   '(+ - < = cons eq? make-vector vector-ref make-string string-ref))
 (define op3

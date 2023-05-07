@@ -21,6 +21,8 @@
 ;;           | (Begin (Listof Expr))
 ;;           | (Let Id Expr Expr)
 ;;           | (Var Id)
+;;           | (Cond [ListOf CondClause] Expr)
+;;           | (Case Expr [ListOf CondClause] Expr)
 ;;           | (Match Expr (Listof Pat) (Listof Expr))
 ;;           | (App Expr (Listof Expr))
 ;;           | (Lam Id (Listof Id) Expr)
@@ -66,6 +68,9 @@
 (struct App   (e es)       #:prefab)
 (struct Lam   (f xs e)     #:prefab)
 (struct Match (e ps es)    #:prefab)
+(struct Cond  (clist el)   #:prefab)
+(struct Case  (ev cs el)   #:prefab)
+(struct Clause (p b)       #:prefab)
 
 (struct PVar  (x)          #:prefab)
 (struct PWild ()           #:prefab)

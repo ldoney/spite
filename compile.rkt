@@ -108,7 +108,9 @@
     [(Let x e1 e2)      (compile-let x e1 e2 c t?)]
     [(App e es)         (compile-app e es c t?)]
     [(Lam f xs e)       (compile-lam f xs e c)]
-    [(Match e ps es)    (compile-match e ps es c t?)]))
+    [(Match e ps es)    (compile-match e ps es c t?)]
+    [(Cond clist el)    (compile-cond clist el c t?)]
+    [(Case ev clist el) (compile-case ev clist el c t?)]))
 
 ;; Value -> Asm
 (define (compile-value v)
@@ -406,6 +408,60 @@
                    (Add rsp (* 8 (length cm))) ; haven't pushed anything yet
                    (Jmp next))
               cm2))])])]))
+
+; TODO Check to make sure the tail call is passing around properly
+;; [ListOf CondClause] Expr -> Asm
+(define (compile-cond clist el c t?)
+  (compile-cond-rec clist el (gensym 'end) c t?))
+
+(define (compile-cond-rec clist el end c t?)
+  (let* ([exp-end-label (gensym 'condend)])
+    (match clist
+      ['() (seq (compile-e el c t?) 
+                (Label end))]
+      [(cons (Clause p b) lst) 
+       (seq (compile-e p c #f)
+            (Cmp rax val-false)
+            (Je exp-end-label)
+            (compile-e b c #f)
+            (Jmp end)
+            (Label exp-end-label)
+            (compile-cond-rec lst el end c t?))])))
+
+(define (compile-case ev clist el c t?)
+  (seq (compile-e ev c #f)
+       (Mov rbx rax)
+       (compile-case-rec clist el (gensym 'end) c t?)))
+
+(define (compile-case-rec clist el end c t?)
+  (let* ([exp-end-label (gensym 'caseend)] )
+    (match clist
+      ['() (seq (compile-e el c t?) 
+                (Label end))]
+      [(cons (Clause p b) rst) 
+       (seq (in-list-asm p (gensym 'inlistfin))
+            (Cmp rax val-false)
+            (Je exp-end-label)
+            (compile-e b c #f)
+            (Jmp end)
+            (Label exp-end-label)
+            (compile-case-rec rst el end c t?))])))
+
+; Checks if the value in rbx is in the list lst
+(define (in-list-asm lst fin)
+  (match lst
+    ['() (seq 
+           (Mov rax val-false) 
+           (Label fin))]
+    [(cons el rst) (let ([next (gensym 'inlistnext)])
+         (seq 
+           (Mov rax (value->bits el))
+           (Cmp rax rbx)
+           (Jne next)
+           (Mov rax val-true)
+           (Jmp fin)
+           (Label next)
+           (in-list-asm rst fin)))]))
 
 ;; Id CEnv -> Integer
 (define (lookup x cenv)
