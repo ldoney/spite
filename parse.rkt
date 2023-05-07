@@ -36,13 +36,14 @@
     [(list (? (op? op2) p2) e1 e2) (Prim2 p2 (parse-e e1) (parse-e e2))]
     [(list (? (op? op3) p3) e1 e2 e3)
      (Prim3 p3 (parse-e e1) (parse-e e2) (parse-e e3))]
+    [(cons (? (op? opN) p) es)     (PrimN p (map parse-e es))]
     [(list 'begin es ...)          (Begin (map parse-e es))]
     [(list 'if e1 e2 e3)
      (If (parse-e e1) (parse-e e2) (parse-e e3))]
-    [(list 'let (list (list (? symbol? x) e1)) e2)
-     (Let x (parse-e e1) (parse-e e2))]
     [(cons 'match (cons e ms))
      (parse-match (parse-e e) ms)]
+    [(list 'let  bs e)         (parse-let  bs e)]
+    [(list 'let* bs e)         (parse-let* bs e)]
     [(list 'cond clist ... [list 'else el])
      (Cond (parse-clist clist) (parse-e el))]
     [(list 'case expr clist ... [list 'else el])
@@ -71,6 +72,26 @@
      (cons (Clause (parse-e p) (parse-e b)) 
            (parse-clist lst))]
     [_ (error "parse error")]))
+
+;; S-Expr S-Expr -> Let
+(define (parse-let bs e)
+  (match bs
+    ['() (Let '() '() (parse-e e))]
+    [(cons (list (? symbol? x1) e1) bs)
+     (match (parse-let bs e)
+       [(Let xs es e)
+        (Let (cons x1 xs) (cons (parse-e e1) es) e)])]
+    [else (error "parse error")]))
+
+;; S-Expr S-Expr -> Let*
+(define (parse-let* bs e)
+  (match bs
+    ['() (Let* '() '() (parse-e e))]
+    [(cons (list (? symbol? x1) e1) bs)
+     (match (parse-let* bs e)
+       [(Let* xs es e)
+        (Let* (cons x1 xs) (cons (parse-e e1) es) e)])]
+    [else (error "parse error")]))
 
 (define (parse-match e ms)
   (match ms
@@ -103,15 +124,16 @@
 
 (define op1
   '(add1 sub1 zero? char? write-byte eof-object?
+         not - abs boolean? integer?
          integer->char char->integer
          box unbox empty? cons? box? car cdr
-         vector? vector-length string? string-length
-         abs not -))
-
+         vector? vector-length string? string-length))
 (define op2
   '(+ - < = cons eq? make-vector vector-ref make-string string-ref))
 (define op3
   '(vector-set!))
+(define opN 
+  '(+))
 
 (define (op? ops)
   (λ (x)

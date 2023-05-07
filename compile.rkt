@@ -7,6 +7,7 @@
 (define rbx 'rbx) ; heap
 (define rsp 'rsp) ; stack
 (define rdi 'rdi) ; arg
+(define r11 'r11) ; scrap
 
 ;; type CEnv = [Listof Id]
 
@@ -103,9 +104,13 @@
     [(Prim1 p e)        (compile-prim1 p e c)]
     [(Prim2 p e1 e2)    (compile-prim2 p e1 e2 c)]
     [(Prim3 p e1 e2 e3) (compile-prim3 p e1 e2 e3 c)]
+    [(PrimN p es)       (compile-primN p es c t?)]
     [(If e1 e2 e3)      (compile-if e1 e2 e3 c t?)]
     [(Begin es)         (compile-begin es c t?)]
-    [(Let x e1 e2)      (compile-let x e1 e2 c t?)]
+    [(Let (list x ...) (list e1 ...) e2)
+     (compile-let x e1 e2 c t?)]
+    [(Let* (list xs ...) (list es ...) e2)
+     (compile-let* (map list xs es) e2 c t?)]
     [(App e es)         (compile-app e es c t?)]
     [(Lam f xs e)       (compile-lam f xs e c)]
     [(Match e ps es)    (compile-match e ps es c t?)]
@@ -168,6 +173,21 @@
        (compile-e e3 (cons #f (cons #f c)) #f)
        (compile-op3 p)))
 
+;; OpN [Listof Expr] CEnv -> Asm
+(define (compile-primN p es c t?)
+  (seq (compile-e* es c t?)
+       (Push (value->bits (length es)))
+       (compile-opN p)))
+
+;; [Listof Expr] CEnv -> Asm
+(define (compile-e* es c t?)
+  (match es
+    ['() (seq)]
+    [(cons e es)
+     (seq (compile-e e c #f)
+          (Push rax)
+          (compile-e* es (cons #f c) t?))]))
+
 ;; Expr Expr Expr CEnv Bool -> Asm
 (define (compile-if e1 e2 e3 c t?)
   (let ((l1 (gensym 'if))
@@ -189,11 +209,27 @@
                        (compile-begin rst c t?))]))
 
 ;; Id Expr Expr CEnv Bool -> Asm
-(define (compile-let x e1 e2 c t?)
+(define (compile-let1 x e1 e2 c t?)
   (seq (compile-e e1 c #f)
        (Push rax)
        (compile-e e2 (cons x c) t?)
        (Add rsp 8)))
+
+;; [ListOf Id] [ListOf Expr] Expr CEnv Bool -> Asm
+(define (compile-let xs e1s e2 c t?)
+  (seq (compile-e* (reverse e1s) c #f)
+       (compile-e e2 (append xs c) t?)
+       (Add rsp (* 8 (length e1s)))))
+
+;; [ListOf Id] [ListOf Expr] Expr CEnv Bool -> Asm
+(define (compile-let* ls e2 c t?)
+  (match ls
+    ['() (seq (compile-e e2 c #f)
+              (Sub rsp (* 8 (length ls))))]
+    [(cons (list x e) rst) (seq (compile-e e c #f)
+                                (Push rax)
+                                (compile-let* rst e2 (cons x c) #f)
+                                (Add rsp 8))]))
 
 ;; Id [Listof Expr] CEnv Bool -> Asm
 (define (compile-app f es c t?)
@@ -430,7 +466,7 @@
 
 (define (compile-case ev clist el c t?)
   (seq (compile-e ev c #f)
-       (Mov rbx rax)
+       (Mov r11 rax)
        (compile-case-rec clist el (gensym 'end) c t?)))
 
 (define (compile-case-rec clist el end c t?)
@@ -447,7 +483,7 @@
             (Label exp-end-label)
             (compile-case-rec rst el end c t?))])))
 
-; Checks if the value in rbx is in the list lst
+; Checks if the value in r11 is in the list lst
 (define (in-list-asm lst fin)
   (match lst
     ['() (seq 
@@ -456,7 +492,7 @@
     [(cons el rst) (let ([next (gensym 'inlistnext)])
          (seq 
            (Mov rax (value->bits el))
-           (Cmp rax rbx)
+           (Cmp rax r11)
            (Jne next)
            (Mov rax val-true)
            (Jmp fin)

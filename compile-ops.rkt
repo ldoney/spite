@@ -115,7 +115,22 @@
             (Jmp done)
             (Label zero)
             (Mov rax 0)
-            (Label done)))]))
+            (Label done)))]
+    ['integer? (type-pred mask-int type-int)]
+    ['boolean? (let ((ok (gensym 'ok))) 
+                    (seq (Mov r9 rax)
+                         (Mov rax val-true)
+                         (generate-long-comparisons (list val-true val-false) ok)
+                         (Mov rax val-false)
+                         (Label ok)))]))
+
+(define (generate-long-comparisons lst oklabel)
+  (match lst
+    ['() '()]
+    [(cons val rst) 
+     (seq (Cmp r9 val) 
+          (Je oklabel) 
+          (generate-long-comparisons rst oklabel))]))
 
 ;; Op2 -> Asm
 (define (compile-op2 p)
@@ -280,6 +295,20 @@
           (Mov (Offset r8 8) rax)
           (Mov rax (value->bits (void))))]))
 
+(define (compile-opN p)
+  (match p
+    ['+ (let ((opnloop (gensym 'opnloop)) (endloop (gensym 'endloop))) 
+             (seq (Pop r10)
+                  (Mov rax (value->bits 0))
+                  (Label opnloop)
+                  (Cmp r10 (value->bits 1))
+                  (Jl endloop)
+                  (Pop r8)
+                  (assert-integer r8)
+                  (Add rax r8)
+                  (Sub r10 (value->bits 1))
+                  (Jmp opnloop)
+                  (Label endloop)))]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 

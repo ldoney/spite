@@ -17,9 +17,11 @@
 ;;           | (Prim1 Op1 Expr)
 ;;           | (Prim2 Op2 Expr Expr)
 ;;           | (Prim3 Op3 Expr Expr Expr)
+;;           | (PrimN OpN [Listof Expr])
 ;;           | (If Expr Expr Expr)
 ;;           | (Begin (Listof Expr))
-;;           | (Let Id Expr Expr)
+;;           | (Let  [Listof Id] [Listof Expr] Expr)  ; lengths must be equal
+;;           | (Let* [Listof Id] [Listof Expr] Expr)  ; lengths must be equal
 ;;           | (Var Id)
 ;;           | (Cond [ListOf CondClause] Expr)
 ;;           | (Case Expr [ListOf CondClause] Expr)
@@ -40,6 +42,9 @@
 ;;           | 'make-vector | 'vector-ref
 ;;           | 'make-string | 'string-ref
 ;; type Op3  = 'vector-set!
+;; type CondClause = (Clause Expr Expr)
+;; type CaseClause = (Clause [Listof Datum] Expr)
+;; type Datum = Integer | Boolean | Character
 ;; type Pat  = (PVar Id)
 ;;           | (PWild)
 ;;           | (PLit Lit)
@@ -61,9 +66,11 @@
 (struct Prim1 (p e)        #:prefab)
 (struct Prim2 (p e1 e2)    #:prefab)
 (struct Prim3 (p e1 e2 e3) #:prefab)
+(struct PrimN (p es)       #:prefab)
 (struct If    (e1 e2 e3)   #:prefab)
 (struct Begin (es)         #:prefab)
-(struct Let   (x e1 e2)    #:prefab)
+(struct Let   (xs es e)    #:prefab)
+(struct Let*  (xs es e)    #:prefab)
 (struct Var   (x)          #:prefab)
 (struct App   (e es)       #:prefab)
 (struct Lam   (f xs e)     #:prefab)
