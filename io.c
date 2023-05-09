@@ -30,12 +30,9 @@ val_t write_byte(val_t c)
   return val_wrap_void();
 }
 
-// ****** Spite ********* 
-// TODO lists:
-// - Close all files if possible
-// - Error handling when stuff goes wrong
-// - Implement sockets (switch between the two)
-
+// NOTE: we currently do not properly close files or free allocated strings.
+// At some point, we can write this in and fix it. But, for now,
+// as a quick-and-dirty solution, we do not properly free anything.
 
 // Spite string to C string Given a spite string (UTF-32) (i think), converts
 // it to a multibyte character string. Will malloc more data than it needs, so
@@ -75,7 +72,6 @@ val_char_t *ctos_str(char *s, uint64_t len) {
 
 // file/sock -> bool
 val_t spite_close(val_t fs) {
-  //TODO: Implement some switch for sockets, this is for files
   int64_t f = val_unwrap_file(fs);
   if (close(f) == 0) 
     return val_true;
@@ -87,15 +83,11 @@ val_t spite_close(val_t fs) {
 
 // string, char -> file
 val_t spite_open(val_t path, val_t flag) {
-  //TODO: Implement some switch for sockets, this is for files
   int64_t fd;
   int oflags;
   mode_t mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
   val_str_t* p = val_unwrap_str(path);
   val_char_t f = val_unwrap_char(flag);
-
-  //TODO: Unallocate this buffer later
-  //This assumes that each codepoint takes one byte, 
 
   // setup oflags
   switch (f) {
