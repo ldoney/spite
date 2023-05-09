@@ -15,11 +15,52 @@
 ;; S-Expr -> Defn
 (define (parse-define s)
   (match s
-    [(list 'define (list-rest (? symbol? f) xs) e)
-     (if (andmap symbol? xs)
-         (Defn f xs (parse-e e))
+    [(list 'define (? symbol? f)
+           (list-rest 'case-lambda cs))
+     (Defn f (FunCase (parse-case-lambda-clauses cs)))]
+    [(list 'define (cons (? symbol? f) xs) e)
+     (if (all symbol? xs)
+         (Defn f (parse-param-list xs e))
          (error "parse definition error"))]
     [_ (error "Parse defn error" s)]))
+
+;; like andmap, but work on improper lists too
+(define (all p? xs)
+  (match xs
+    ['() #t]
+    [(cons x xs) (and (p? x) (all p? xs))]
+    [x (p? x)]))
+
+;; S-Expr -> [Listof FunCaseClause]
+(define (parse-case-lambda-clauses cs)
+  (match cs
+    ['() '()]
+    [(cons c cs)
+     (cons (parse-case-lambda-clause c)
+           (parse-case-lambda-clauses cs))]
+     [_
+      (error "parse case-lambda error")]))
+
+;; S-Expr -> FunRest
+(define (parse-case-lambda-clause c)
+  (match c
+    [(list (? symbol? x) e)
+     (FunRest '() x (parse-e e))]
+    [(list xs e)
+     (parse-param-list xs e)]))
+
+;; S-Expr S-Expr -> FunPlain or FunRest
+(define (parse-param-list xs e)
+  (match xs
+    ['() (FunPlain '() (parse-e e))]
+    [(cons x xs)
+     (match (parse-param-list xs e)
+       [(FunPlain xs e) (FunPlain (cons x xs) e)]
+       [(FunRest xs y e) (FunRest (cons x xs) y e)])]
+    [(? symbol? xs)
+     (FunRest '() xs (parse-e e))]
+    [_
+     (error "parse parameter list error")]))
 
 ;; S-Expr -> Expr
 (define (parse-e s)
@@ -49,7 +90,7 @@
     [(list (or 'lambda 'λ) xs e)
      (if (and (list? xs)
               (andmap symbol? xs))
-         (Lam (gensym 'lambda) xs (parse-e e))
+         (Lam (gensym 'lambda) (LamPlain xs (parse-e e)))
          (error "parse lambda error"))]
     [(cons e es)
      (App (parse-e e) (map parse-e es))]    

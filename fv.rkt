@@ -18,7 +18,7 @@
     [(Let xs es e2)     (append (append-map fv* es) (remq* (list xs) (fv* e2)))]
     [(Let* xs es e2)    (append (append-map fv* es) (remq* (list xs) (fv* e2)))]
     [(App e1 es)        (append (fv* e1) (append-map fv* es))]
-    [(Lam f xs e)       (remq* xs (fv* e))]
+    [(Lam f lam)        (remq* (get-lambda-xs lam) (map-on-lambda-e fv* lam))]
     [(Match e ps es)    (append (fv* e) (append-map fv-clause* ps es))]
     [_                  '()]))
 

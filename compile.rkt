@@ -41,7 +41,7 @@
 (define (define-ids ds)
   (match ds
     ['() '()]
-    [(cons (Defn f xs e) ds)
+    [(cons (Defn f fun) ds)
      (cons f (define-ids ds))]))
 
 ;; [Listof Defn] -> Asm
@@ -54,9 +54,7 @@
 
 ;; Defn -> Asm
 (define (compile-define d)
-  (match d
-    [(Defn f xs e)
-     (compile-lambda-define (Lam f xs e))]))
+  (compile-lambda-define (fun->lam d)))
 
 ;; [Listof Lam] -> Asm
 (define (compile-lambda-defines ls)
@@ -70,7 +68,7 @@
 (define (compile-lambda-define l)
   (let ((fvs (fv l)))
     (match l
-      [(Lam f xs e)
+      [(Lam f (LamPlain xs e))
        (let ((env  (append (reverse fvs) (reverse xs) (list #f))))
          (seq (Label (symbol->label f))              
               (Mov rax (Offset rsp (* 8 (length xs))))
@@ -112,7 +110,7 @@
     [(Let* (list xs ...) (list es ...) e2)
      (compile-let* (map list xs es) e2 c t?)]
     [(App e es)         (compile-app e es c t?)]
-    [(Lam f xs e)       (compile-lam f xs e c)]
+    [(Lam f lam)        (compile-lam f lam c)]
     [(Match e ps es)    (compile-match e ps es c t?)]
     [(Cond clist el)    (compile-cond clist el c t?)]
     [(Case ev clist el) (compile-case ev clist el c t?)]))
@@ -286,8 +284,8 @@
 (define (alloc-defines ds off)
   (match ds
     ['() (seq)]
-    [(cons (Defn f xs e) ds)
-     (let ((fvs (fv (Lam f xs e))))
+    [(cons (Defn f fun) ds)
+     (let ((fvs (fv (Lam f (fun->lam fun)))))
        (seq (Lea rax (symbol->label f))
             (Mov (Offset rbx off) rax)         
             (Mov rax rbx)
@@ -301,8 +299,8 @@
 (define (init-defines ds c off)
   (match ds
     ['() (seq)]
-    [(cons (Defn f xs e) ds)
-     (let ((fvs (fv (Lam f xs e))))
+    [(cons (Defn f fun) ds)
+     (let ((fvs (fv (Lam f (fun->lam fun)))))
        (seq (free-vars-to-heap fvs c off)
             (init-defines ds c (+ off (* 8 (add1 (length fvs)))))))]))
 
@@ -311,12 +309,12 @@
 (define (add-rbx-defines ds n)
   (match ds
     ['() (seq (Add rbx (* n 8)))]
-    [(cons (Defn f xs e) ds)
-     (add-rbx-defines ds (+ n (add1 (length (fv (Lam f xs e))))))]))
+    [(cons (Defn f fun) ds)
+     (add-rbx-defines ds (+ n (add1 (length (fv (Lam f (fun->lam fun)))))))]))
 
 ;; Id [Listof Id] Expr CEnv -> Asm
-(define (compile-lam f xs e c) 
-  (let ((fvs (fv (Lam f xs e))))
+(define (compile-lam f lam c) 
+  (let ((fvs (fv (Lam f lam))))
     (seq (Lea rax (symbol->label f))
          (Mov (Offset rbx 0) rax)
          (free-vars-to-heap fvs c 8)

@@ -15,8 +15,8 @@
 (define (lambdas-ds ds)
   (match ds
     ['() '()]
-    [(cons (Defn f xs e) ds)
-     (append (lambdas-e e)
+    [(cons (Defn f fun) ds)
+     (append (map-on-fun-e lambdas-e fun)
              (lambdas-ds ds))]))
 
 ;; Expr -> [Listof Lam]
@@ -32,6 +32,6 @@
     [(Let xs es e2)     (append (append-map lambdas-e es) (lambdas-e e2))]
     [(Let* xs es e2)    (append (append-map lambdas-e es) (lambdas-e e2))]
     [(App e1 es)        (append (lambdas-e e1) (append-map lambdas-e es))]
-    [(Lam f xs e1)      (cons e (lambdas-e e1))]
+    [(Lam f lam)        (cons (Lam f lam) (map-on-lambda-e lambdas-e lam))]
     [(Match e ps es)    (append (lambdas-e e) (append-map lambdas-e es))]
     [_                  '()]))
