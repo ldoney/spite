@@ -58,6 +58,9 @@ val_t val_wrap_bool(int b);
 int val_unwrap_file(val_t x);
 val_t val_wrap_file(int64_t f);
 
+int val_unwrap_socket(val_t x);
+val_t val_wrap_socket(int64_t f);
+
 val_char_t val_unwrap_char(val_t x);
 val_t val_wrap_char(val_char_t b);
 

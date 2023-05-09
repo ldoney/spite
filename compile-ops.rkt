@@ -108,7 +108,7 @@
             (Mov rax 0)
             (Label done)))]
     ['close
-     (seq (assert-file rax)
+     (seq (assert-file-or-socket rax)
           (Mov rdi rax)
           pad-stack
           (Call 'spite_close)
@@ -124,6 +124,12 @@
           (Mov rdi rax)
           pad-stack
           (Call 'spite_write_stdout)
+          unpad-stack)]
+    ['listen
+     (seq (assert-natural rax)
+          (Mov rdi rax)
+          pad-stack
+          (Call 'spite_listen)
           unpad-stack)]))
 
 ;; Op2 -> Asm
@@ -278,7 +284,7 @@
           unpad-stack)]
     ['read
      (seq (Pop rdi)
-          (assert-file rdi)
+          (assert-file-or-socket rdi)
           (assert-natural rax)
           (Mov rsi rax)
           pad-stack
@@ -286,12 +292,45 @@
           unpad-stack)]
     ['write
      (seq (Pop rdi)
-          (assert-file rdi)
+          (assert-file-or-socket rdi)
           (assert-string rax)
           (Mov rsi rax)
           pad-stack
           (Call 'spite_write)
-          unpad-stack)]))
+          unpad-stack)]
+    ['open-sock
+     (seq (Pop rdi)
+          (assert-string rdi)
+          (assert-natural rax)
+          (Mov rsi rax)
+          pad-stack
+          (Call 'spite_open_sock)
+          unpad-stack)]
+    ['on-message
+     (let ([fun (gensym)]
+           [end (gensym)])
+       (seq (Pop rdi)
+            (assert-socket rdi)
+            (assert-proc rax)
+            (Lea rsi fun)
+            (Jmp end)
+
+            ;; Rax is a proc which is the following in memory
+            ;; | func | fv1 | fv2 | fv3 |....
+            ;;
+            ;; 
+
+            ;; Function that C calls
+            (Label fun)
+            unpad-stack
+
+            pad-stack
+            (Ret)
+            ;; End function
+            (Label end)))]))
+
+
+
 
 
 
@@ -339,6 +378,19 @@
   (assert-type mask-file type-file))
 (define assert-socket
   (assert-type mask-socket type-socket))
+(define (assert-file-or-socket arg)
+  (let ((good (gensym)))
+    (seq (Mov r9 arg)
+         (And r9 mask-file)
+         (Cmp r9 type-file)
+         (Je good)
+         (Mov r9 arg)
+         (And r9 mask-socket)
+         (Cmp r9 type-socket)
+         (Je good)
+         (Jmp 'raise_error_align)
+         (Label good))))
+
 (define assert-integer
   (assert-type mask-int type-int))
 (define assert-char
