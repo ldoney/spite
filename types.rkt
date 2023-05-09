@@ -35,12 +35,6 @@
          (arithmetic-shift b (- int-shift))]
         [(= type-char (bitwise-and b mask-char))
          (integer->char (arithmetic-shift b (- char-shift)))]
-
-        [(= type-file (bitwise-and b mask-file))
-         (arithmetic-shift b (- file-shift))]
-        [(= type-socket (bitwise-and b mask-socket))
-         (arithmetic-shift b (- socket-shift))]
-
         [(= b val-true)  #t]
         [(= b val-false) #f]
         [(= b val-eof)  eof]

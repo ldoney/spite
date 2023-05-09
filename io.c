@@ -32,10 +32,8 @@ val_t write_byte(val_t c)
 
 // ****** Spite ********* 
 // TODO lists:
-// - Free stuff after malloc
-// - Close files when done
+// - Close all files if possible
 // - Error handling when stuff goes wrong
-// - EOF handling
 // - Implement sockets (switch between the two)
 
 
