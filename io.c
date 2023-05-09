@@ -143,7 +143,7 @@ val_t spite_read_stdin(val_t num_chars) {
 
   // Allocate space for our struct
   val_str_t *str = malloc(sizeof(uint64_t) + (n*sizeof(wchar_t)));
-  str->len = n;
+  str->len = strlen(cstr);
   wmemcpy(str->codepoints, sstr, n);
 
   free(sstr);
@@ -154,10 +154,11 @@ val_t spite_read_stdin(val_t num_chars) {
 val_t spite_read(val_t fs, val_t num_chars) {
   int64_t n = val_unwrap_int(num_chars);
   int fd = val_unwrap_file(fs);
+  int64_t bytes_read = 0;
   char cstr[n];
   val_char_t *codepoints;
 
-  if(read(fd, cstr, n) == -1) {
+  if((bytes_read = read(fd, cstr, n)) == -1) {
     perror("spite_read");
     exit(-1);
   } 
@@ -165,7 +166,7 @@ val_t spite_read(val_t fs, val_t num_chars) {
   wchar_t *sstr = ctos_str(cstr, n);
   val_str_t *str = malloc(sizeof(uint64_t) + (n*sizeof(wchar_t)));
   wmemcpy(str->codepoints, sstr, n);
-  str->len = n;
+  str->len = bytes_read;
 
   free(sstr);
   return val_wrap_str(str);

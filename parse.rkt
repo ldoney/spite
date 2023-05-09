@@ -31,11 +31,11 @@
     ['eof                          (Eof)]
     [(? symbol?)                   (Var s)]
     [(list 'quote (list))          (Empty)]
-    [(list (? (op? op0) p0))       (Prim0 p0)]
-    [(list (? (op? op1) p1) e)     (Prim1 p1 (parse-e e))]
-    [(list (? (op? op2) p2) e1 e2) (Prim2 p2 (parse-e e1) (parse-e e2))]
+    [(list (? (op? op0) p0))       (alias (Prim0 p0))]
+    [(list (? (op? op1) p1) e)     (alias (Prim1 p1 (parse-e e)))]
+    [(list (? (op? op2) p2) e1 e2) (alias (Prim2 p2 (parse-e e1) (parse-e e2)))]
     [(list (? (op? op3) p3) e1 e2 e3)
-     (Prim3 p3 (parse-e e1) (parse-e e2) (parse-e e3))]
+     (alias (Prim3 p3 (parse-e e1) (parse-e e2) (parse-e e3)))]
     [(list 'begin e1 e2)
      (Begin (parse-e e1) (parse-e e2))]
     [(list 'if e1 e2 e3)
@@ -79,6 +79,11 @@
     [(list 'and p1 p2)
      (PAnd (parse-pat p1) (parse-pat p2))]))
 
+(define (alias p)
+  (match p
+    [(Prim1 'println e) (Begin (Prim1 'write e) (Prim1 'write (Str "\n")))]
+    [_ p]))
+
 (define op0
   '(read-byte peek-byte void))
 
@@ -87,7 +92,7 @@
          integer->char char->integer
          box unbox empty? cons? box? car cdr
          vector? vector-length string? string-length 
-
+         println
          close read write print listen on-message closed?))
 
 (define op2

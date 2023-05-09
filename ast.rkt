@@ -36,7 +36,7 @@
 ;;           | close    | read
 ;;           | write    | print
 ;;           | listen   | on-message
-;;           | closed?
+;;           | closed?  | println
 ;; type Op2  = '+ | '- | '< | '=
 ;;           | 'cons
 ;;           | 'make-vector | 'vector-ref
