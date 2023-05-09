@@ -44,10 +44,8 @@
      (parse-match (parse-e e) ms)]
     [(list 'let  bs e)         (parse-let  bs e)]
     [(list 'let* bs e)         (parse-let* bs e)]
-    [(list 'cond clist ... [list 'else el])
-     (Cond (parse-clist clist) (parse-e el))]
-    [(list 'case expr clist ... [list 'else el])
-     (Case (parse-e expr) (parse-clist-datum clist) (parse-e el))]
+    [(cons 'cond cs)           (parse-cond cs)]
+    [(cons 'case (cons ev cs)) (parse-case ev cs)]
     [(list (or 'lambda 'λ) xs e)
      (if (and (list? xs)
               (andmap symbol? xs))
@@ -57,20 +55,38 @@
      (App (parse-e e) (map parse-e es))]    
     [_ (error "Parse error" s)]))
 
-(define (parse-clist-datum clist)
-  (match clist
-    ['() '()]
-    [(cons (list (? list? p) b) lst) 
-     (cons (Clause p (parse-e b)) 
-           (parse-clist-datum lst))]
-    [_ (error "Parse error")]))
+;; S-Expr -> Cond
+(define (parse-cond cs)
+  (match cs
+    [(list (list 'else e)) (Cond '() (parse-e e))]
+    [(cons (list p e) css)
+     (match (parse-cond css)
+       [(Cond cs el)
+        (Cond (cons (Clause (parse-e p) (parse-e e)) cs) el)])]
+    [_ (error "parse error")]))
 
-(define (parse-clist clist)
-  (match clist
+;; S-Expr S-Expr -> Case
+(define (parse-case ev cs)
+  (match cs
+    [(list (list 'else e)) (Case (parse-e ev) '() (parse-e e))]
+    [(cons (list ds e) css)
+     (match (parse-case ev css)
+       [(Case ev cs el)
+        (Case ev (cons (Clause (parse-datums ds) (parse-e e)) cs) el)])]
+    [_ (error "parse error")]))
+
+;; S-Expr -> [Listof Datum]
+(define (parse-datums ds)
+  (match ds
     ['() '()]
-    [(cons (list p b) lst) 
-     (cons (Clause (parse-e p) (parse-e b)) 
-           (parse-clist lst))]
+    [(cons (? integer? i) ds)
+     (cons i (parse-datums ds))]
+    [(cons (? boolean? b) ds)
+     (cons b (parse-datums ds))]
+    [(cons (? char? c) ds)
+     (cons c (parse-datums ds))]
+    [(cons 'eof ds)
+     (cons eof (parse-datums ds))]
     [_ (error "parse error")]))
 
 ;; S-Expr S-Expr -> Let

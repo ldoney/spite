@@ -175,7 +175,7 @@
 
 ;; OpN [Listof Expr] CEnv -> Asm
 (define (compile-primN p es c t?)
-  (seq (compile-e* es c t?)
+  (seq (compile-e* es c #f)
        (Push (value->bits (length es)))
        (compile-opN p)))
 
@@ -224,7 +224,7 @@
 ;; [ListOf Id] [ListOf Expr] Expr CEnv Bool -> Asm
 (define (compile-let* ls e2 c t?)
   (match ls
-    ['() (seq (compile-e e2 c #f)
+    ['() (seq (compile-e e2 c t?)
               (Sub rsp (* 8 (length ls))))]
     [(cons (list x e) rst) (seq (compile-e e c #f)
                                 (Push rax)
