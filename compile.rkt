@@ -5,6 +5,8 @@
 ;; Registers used
 (define rax 'rax) ; return
 (define rbx 'rbx) ; heap
+(define rcx 'rcx) ; arity
+(define rdx 'rdx) ; arity
 (define rsp 'rsp) ; stack
 (define rdi 'rdi) ; arg
 (define r11 'r11) ; scrap
@@ -66,17 +68,87 @@
 
 ;; Lam -> Asm
 (define (compile-lambda-define l)
-  (let ((fvs (fv l)))
-    (match l
-      [(Lam f (LamPlain xs e))
-       (let ((env  (append (reverse fvs) (reverse xs) (list #f))))
-         (seq (Label (symbol->label f))              
+  (let ((fvs (fv l))) (match l
+    [(Lam f lam) (seq 
+      (Label (symbol->label f))
+      (match lam
+        [(LamPlain xs e)
+          (let ((env  (append (reverse fvs) (reverse xs) (list #f))))
+            (seq (Mov rax (Offset rsp (* 8 (length xs))))
+                 (Xor rax type-proc)
+                 (Cmp 'rcx (length xs))
+                 (Jne 'raise_error)
+                 (copy-env-to-stack fvs 8)
+                 (compile-e e env #f)
+                 (Add rsp (* 8 (length env)))))]
+        [(LamRest xs x e)
+          (let ((env  (append (reverse fvs) (list x) (reverse xs) (list #f))))
+            (seq 
               (Mov rax (Offset rsp (* 8 (length xs))))
               (Xor rax type-proc)
+              (Cmp 'rcx (length xs))
+              (Jl 'raise_error)
+              (Sub 'rcx (length xs))
+              (pop-rcx-times (gensym 'start_rst) (gensym 'end_rst))
               (copy-env-to-stack fvs 8)
-              (compile-e e env #t)
-              (Add rsp (* 8 (length env))) ; pop env
-              (Ret)))])))
+              (compile-e e env #f)
+              (Add rsp (* 8 (length env)))))])
+      (Ret))])))
+
+(define (parse-fun-case-clause cs fvs end)
+  (match cs
+    ['() (seq 
+          (Jmp 'raise_error)
+          (Label end)
+          (Ret))]
+    [(cons (LamPlain xs e) rst) 
+      (let ((skip (gensym 'skip_case)) (env (append (reverse fvs) (reverse xs) (list #f))))
+        (seq 
+          (Cmp rcx (length xs))
+          (Jne skip)
+
+          (Mov rax (Offset rsp (* 8 (length xs))))
+          (Xor rax type-proc)
+          (copy-env-to-stack fvs 8)
+          (compile-e e env #f)
+          (Add rsp (* 8 (length env)))
+          
+          (Label skip)
+          (parse-fun-case-clause rst fvs end)))
+    ]
+    [(cons (LamRest xs x e) rst) 
+      (let ((skip (gensym 'skip_case)) (env (append (reverse fvs) (length x) (reverse xs) (list #f))))
+        (seq 
+          (Cmp rcx (length xs))
+          (Jl skip)
+          
+          (Sub 'rcx (length xs))
+          (pop-rcx-times (gensym 'start_rst) (gensym 'end_rst))
+          (copy-env-to-stack fvs 8)
+          (compile-e e env #f)
+          (Add rsp (* 8 (length env)))
+
+          (Label skip)
+          (parse-fun-case-clause rst fvs end)))]))
+
+(define (pop-rcx-times start-lbl end-lbl)
+  (seq 
+      (Mov rax (imm->bits '()))
+      (Push rax)
+      (Label start-lbl)
+      (Cmp rcx 0)
+      (Je end-lbl)
+      (Pop rax)
+      (Mov (Offset rbx 0) rax)
+      (Pop rax)
+      (Mov (Offset rbx 8) rax)
+      (Mov rax rbx)
+      (Or rax type-cons)
+      (Add rbx 16)
+      (Push rax)
+      (Sub rcx 1)
+      (Jmp start-lbl)
+      (Label end-lbl)))
 
 ;; [Listof Id] Int -> Asm
 ;; Copy the closure environment at given offset to stack
@@ -110,6 +182,7 @@
     [(Let* (list xs ...) (list es ...) e2)
      (compile-let* (map list xs es) e2 c t?)]
     [(App e es)         (compile-app e es c t?)]
+    [(Apply f es e)     (compile-apply f es e c t?)]
     [(Lam f lam)        (compile-lam f lam c)]
     [(Match e ps es)    (compile-match e ps es c t?)]
     [(Cond clist el)    (compile-cond clist el c t?)]
@@ -136,6 +209,47 @@
              (Or rax type-str)
              (Add rbx
                   (+ 8 (* 4 (if (odd? len) (add1 len) len))))))))
+
+(define (generate-extra-env c n)
+  (if (= n 0)
+    c
+    (cons #f (generate-extra-env c (- n 1)))))
+
+;; Id [Listof Expr] Expr CEnv Bool -> Asm
+(define (compile-apply f es e c t?)
+  (let ((r (gensym 'ret)) (start-lbl (gensym 'start_app)) (end-lbl (gensym 'end_app)))
+    (seq 
+         ; Make a label for return point and push onto stack
+         (Lea rax r)
+         (Push rax)
+
+         ; Execute all arguments (except for rst) and push to stack
+         (compile-es es (cons #f c))
+
+         ; Execute list argument
+         (compile-e e (cons #f (generate-extra-env c (length es))) #f)
+         (Push rax)
+
+         ; Traverse the list and push elements until reaching the end of the list
+         (Mov rcx (length es))      ; Keep track of num arguments
+         (Label start-lbl)          ; Loop point
+         (Pop rax)
+         (Cmp rax (imm->bits '()))
+         (Je end-lbl)
+         (assert-cons rax)
+         (Xor rax type-cons)        ; Erase the pair tag
+         (Mov rdx (Offset rax 8))   ; Push (car e) 
+         (Push rdx)
+         (Mov rdx (Offset rax 0))   ; Push (cdr e) 
+         (Push rdx)
+         (Add rcx 1)                ; Increment arguments pushed
+
+         (Jmp start-lbl)            ; Loop
+         (Label end-lbl)
+
+         ; At this point, all elements are on stack. Jump to function
+         (Jmp (symbol->label f))
+         (Label r))))
 
 ;; [Listof Char] Integer -> Asm
 (define (compile-string-chars cs i)
@@ -231,7 +345,6 @@
 
 ;; Id [Listof Expr] CEnv Bool -> Asm
 (define (compile-app f es c t?)
-  ;(compile-app-nontail f es c)
   (if t?
       (compile-app-tail f es c)
       (compile-app-nontail f es c)))
@@ -245,6 +358,7 @@
        (assert-proc rax)
        (Xor rax type-proc)
        (Mov rax (Offset rax 0))
+       (Mov 'rcx (length es))
        (Jmp rax)))
 
 ;; Integer Integer -> Asm
@@ -269,6 +383,7 @@
          (assert-proc rax)
          (Xor rax type-proc)
          (Mov rax (Offset rax 0)) ; fetch the code label
+         (Mov 'rcx (length es))
          (Jmp rax)
          (Label r))))
 

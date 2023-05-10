@@ -21,3 +21,4 @@
 (test-runner-dupe+            (λ p (unload/free (asm-interp (compile (parse p))))))
 (test-runner-fraud+           (λ p (unload/free (asm-interp (compile (parse p))))))
 (test-runner-randomized-dupe+ (λ p (unload/free (asm-interp (compile (parse p))))))
+(test-runner-funs             (λ p (unload/free (asm-interp (compile (parse p))))))
