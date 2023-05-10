@@ -71,21 +71,9 @@
               (andmap symbol? xs))
          (Lam (gensym 'lambda) (LamPlain xs (parse-e e)))
          (error "parse lambda error"))]
-    [(list-rest 'apply (? symbol? f) es)
-     (parse-apply f es)]
     [(cons e es)
      (App (parse-e e) (map parse-e es))]    
     [_ (error "Parse error" s)]))
-
-;; Id S-Expr -> Expr
-(define (parse-apply f es)
-  (match es
-    [(list e) (Apply f '() (parse-e e))]
-    [(cons e es)
-     (match (parse-apply f es)
-       [(Apply f es e0)
-        (Apply f (cons (parse-e e) es) e0)])]
-    [_ (error "parse apply error")]))
 
 ;; S-Expr -> Cond
 (define (parse-cond cs)

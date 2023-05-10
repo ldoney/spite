@@ -182,7 +182,6 @@
     [(Let* (list xs ...) (list es ...) e2)
      (compile-let* (map list xs es) e2 c t?)]
     [(App e es)         (compile-app e es c t?)]
-    [(Apply f es e)     (compile-apply f es e c t?)]
     [(Lam f lam)        (compile-lam f lam c)]
     [(Match e ps es)    (compile-match e ps es c t?)]
     [(Cond clist el)    (compile-cond clist el c t?)]
@@ -209,47 +208,6 @@
              (Or rax type-str)
              (Add rbx
                   (+ 8 (* 4 (if (odd? len) (add1 len) len))))))))
-
-(define (generate-extra-env c n)
-  (if (= n 0)
-    c
-    (cons #f (generate-extra-env c (- n 1)))))
-
-;; Id [Listof Expr] Expr CEnv Bool -> Asm
-(define (compile-apply f es e c t?)
-  (let ((r (gensym 'ret)) (start-lbl (gensym 'start_app)) (end-lbl (gensym 'end_app)))
-    (seq 
-         ; Make a label for return point and push onto stack
-         (Lea rax r)
-         (Push rax)
-
-         ; Execute all arguments (except for rst) and push to stack
-         (compile-es es (cons #f c))
-
-         ; Execute list argument
-         (compile-e e (cons #f (generate-extra-env c (length es))) #f)
-         (Push rax)
-
-         ; Traverse the list and push elements until reaching the end of the list
-         (Mov rcx (length es))      ; Keep track of num arguments
-         (Label start-lbl)          ; Loop point
-         (Pop rax)
-         (Cmp rax (imm->bits '()))
-         (Je end-lbl)
-         (assert-cons rax)
-         (Xor rax type-cons)        ; Erase the pair tag
-         (Mov rdx (Offset rax 8))   ; Push (car e) 
-         (Push rdx)
-         (Mov rdx (Offset rax 0))   ; Push (cdr e) 
-         (Push rdx)
-         (Add rcx 1)                ; Increment arguments pushed
-
-         (Jmp start-lbl)            ; Loop
-         (Label end-lbl)
-
-         ; At this point, all elements are on stack. Jump to function
-         (Jmp (symbol->label f))
-         (Label r))))
 
 ;; [Listof Char] Integer -> Asm
 (define (compile-string-chars cs i)
