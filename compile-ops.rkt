@@ -281,8 +281,7 @@
           (Sal rax char-shift)
           (Or rax type-char))]
     ['open
-     (seq (%% "Starting spite_open")
-          (Pop rdi)
+     (seq (Pop rdi)
           (assert-string rdi) ; WAS assert-file
           (assert-char rax)
           (Mov rsi rax)
@@ -343,8 +342,8 @@
             (%% "Lambda_entry start")
             ;; return address to C *should* already be on the stack, so we
             ;; shouldn't need to jump back here at all
-            ;;(assert-string rdi)
-            ;;(assert-proc rsi)
+            (assert-string rdi)
+            (assert-proc rsi)
 
             ;; Push proc and arguments onto stack so the stack is the same as
             ;; if msg was applied to the lambda. This assumes that the lambda
