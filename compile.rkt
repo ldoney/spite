@@ -19,7 +19,9 @@
            (Label 'entry)
            (Push rbx)    ; save callee-saved register	   
            (Mov rbx rdi) ; recv heap pointer
+           (%%% "compile-defines-values")
            (compile-defines-values ds)
+           (%%% "compile main")
            (compile-e e (reverse (define-ids ds)) #f)
            (Add rsp (* 8 (length ds))) ;; pop function definitions
            (Pop rbx)     ; restore callee-save register
@@ -44,8 +46,9 @@
        (Extern 'spite_write_stdout) ;; Aliased through parser to write
        (Extern 'spite_open_sock)
        (Extern 'spite_listen)
+       (Extern 'spite_accept)
        (Extern 'spite_on_message)
-       (Extern 'closed))) 
+       (Extern 'closed)))
 ;; [Listof Defn] -> [Listof Id]
 (define (define-ids ds)
   (match ds
@@ -81,11 +84,16 @@
     (match l
       [(Lam f xs e)
        (let ((env  (append (reverse fvs) (reverse xs) (list #f))))
-         (seq (Label (symbol->label f))
+         (seq (%% (string-append "compile-lambda-define" (~a f)))
+              (Label (symbol->label f))
               (Mov rax (Offset rsp (* 8 (length xs))))
               (Xor rax type-proc)
+              (%% "copy env to stack begin")
+              (%% (~a fvs))
               (copy-env-to-stack fvs 8)
+              (%% "copy env to stack end")
               (compile-e e env #t)
+              (%% "compile-lambda-define pop env")
               (Add rsp (* 8 (length env))) ; pop env
               (Ret)))])))
 
@@ -127,7 +135,8 @@
 ;; Id CEnv -> Asm
 (define (compile-variable x c)
   (let ((i (lookup x c)))
-    (seq (Mov rax (Offset rsp i)))))
+    (seq (%% (string-append "looking up variable " (~a x)))
+         (Mov rax (Offset rsp i)))))
 
 ;; String -> Asm
 (define (compile-string s)
@@ -192,7 +201,7 @@
 ;; Expr Expr CEnv Bool -> Asm
 (define (compile-begin e1 e2 c t?)
   (seq (compile-e e1 c #f)
-       (compile-e e2 c t?)))
+       (compile-e e2 c #f)))
 
 ;; Id Expr Expr CEnv Bool -> Asm
 (define (compile-let x e1 e2 c t?)
@@ -210,7 +219,8 @@
 
 ;; Expr [Listof Expr] CEnv -> Asm
 (define (compile-app-tail e es c)
-  (seq (compile-es (cons e es) c)
+  (seq (%% "begin compile-app-tail")
+       (compile-es (cons e es) c)
        (move-args (add1 (length es)) (length c))
        (Add rsp (* 8 (length c)))
        (Mov rax (Offset rsp (* 8 (length es))))
@@ -234,11 +244,16 @@
 (define (compile-app-nontail e es c)
   (let ((r (gensym 'ret))
         (i (* 8 (length es))))
-    (seq (Lea rax r)
+    (seq (%% "begin compile-app-nontail")
+         (Lea rax r)
          (Push rax)
+         (%%% "compile-es")
          (compile-es (cons e es) (cons #f c))         
+         (%%% "move proc into rax")
          (Mov rax (Offset rsp i))
+         (%%% "assert-proc")
          (assert-proc rax)
+         (%%% "jump to proc jump address")
          (Xor rax type-proc)
          (Mov rax (Offset rax 0)) ; fetch the code label
          (Jmp rax)
@@ -258,7 +273,8 @@
     ['() (seq)]
     [(cons (Defn f xs e) ds)
      (let ((fvs (fv (Lam f xs e))))
-       (seq (Lea rax (symbol->label f))
+       (seq (%% (string-append "alloc-defines for " (~a f)))
+            (Lea rax (symbol->label f))
             (Mov (Offset rbx off) rax)         
             (Mov rax rbx)
             (Add rax off)
@@ -300,7 +316,8 @@
   (match fvs
     ['() (seq)]
     [(cons x fvs)
-     (seq (Mov r8 (Offset rsp (lookup x c)))
+     (seq (%%% (string-append "free-vars-to-heap " (~a x)))
+          (Mov r8 (Offset rsp (lookup x c)))
           (Mov (Offset rbx off) r8)
           (free-vars-to-heap fvs c (+ off 8)))]))
 

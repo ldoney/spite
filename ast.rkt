@@ -35,8 +35,8 @@
 ;;           | 'string? | 'string-length
 ;;           | close    | read
 ;;           | write    | print
-;;           | listen   | on-message
-;;           | closed?
+;;           | listen   | accpet
+;;           | on-message | closed?
 ;; type Op2  = '+ | '- | '< | '=
 ;;           | 'cons
 ;;           | 'make-vector | 'vector-ref

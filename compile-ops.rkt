@@ -7,6 +7,7 @@
 (define rbx 'rbx) ; heap
 (define rdi 'rdi) ; arg
 (define rsi 'rsi) ; arg 2
+(define rdx 'rdx) ; arg 3
 (define r8  'r8)  ; scratch
 (define r9  'r9)  ; scratch
 (define r10 'r10) ; scratch
@@ -130,6 +131,12 @@
           (Mov rdi rax)
           pad-stack
           (Call 'spite_listen)
+          unpad-stack)]
+    ['accept
+     (seq (assert-socket rax)
+          (Mov rdi rax)
+          pad-stack
+          (Call 'spite_accept)
           unpad-stack)]))
 
 ;; Op2 -> Asm
@@ -309,31 +316,50 @@
     ['on-message
      (let ([fun (gensym)]
            [end (gensym)])
-       (seq (Pop rdi)
+       (seq (%% "on-message start")
+            (Pop rdi)
             (assert-socket rdi)
             (assert-proc rax)
+            ;; Call spite_on_message with sock, fun pointer, and proc
             (Lea rsi fun)
+            (Mov rdx rax)
+            pad-stack
+            ;; Save r15 on the stack since C will call back into spite and r15
+            ;; will be overwritten 
+            (Push r15)
+            (Call 'spite_on_message)
+            (Pop r15)
+            unpad-stack
             (Jmp end)
 
-            ;; Rax is a proc which is the following in memory
-            ;; | func | fv1 | fv2 | fv3 |....
-            ;;
-            ;; 
-
             ;; Function that C calls
+            ;; rdi is msg
+            ;; rsi is proc
+            ;; this function here is the first time that our assembly is the
+            ;; CALLEE rather than the CALLER except for the entry point. We
+            ;; need to be sure to save any CALLEE-saved registers we use to the
+            ;; stack
             (Label fun)
-            unpad-stack
+            (%% "Lambda_entry start")
+            ;; return address to C *should* already be on the stack, so we
+            ;; shouldn't need to jump back here at all
+            ;;(assert-string rdi)
+            ;;(assert-proc rsi)
 
-            pad-stack
-            (Ret)
+            ;; Push proc and arguments onto stack so the stack is the same as
+            ;; if msg was applied to the lambda. This assumes that the lambda
+            ;; passed to on-message takes one argument without checking.
+            (Mov rax rsi)
+            (Push rsi)
+            (Push rdi)
+
+            ;; Get label address
+            (Xor rax type-proc)
+            (Mov rax (Offset rax 0))
+            (Jmp rax) ;; jump to proc
+
             ;; End function
             (Label end)))]))
-
-
-
-
-
-
 
 ;; Op3 -> Asm
 (define (compile-op3 p)

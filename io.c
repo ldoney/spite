@@ -77,6 +77,13 @@ val_char_t *ctos_str(char *s, uint64_t len) {
   return (val_char_t*) wc;
 }
 
+val_str_t *make_sstr(wchar_t *str_buf, uint64_t len) {
+  val_str_t *str = malloc(sizeof(uint64_t) + (len*sizeof(wchar_t)));
+  str->len = len;
+  wmemcpy(str->codepoints, str_buf, len);
+  return str;
+}
+
 // file/sock -> bool
 val_t spite_close(val_t fs) {
   //TODO: Implement some switch for sockets, this is for files
@@ -241,9 +248,7 @@ val_t spite_listen(val_t p) {
   }
 
   // Set socket options
-  if (setsockopt(sock, SOL_SOCKET, 
-        SO_REUSEADDR | SO_REUSEPORT, &sockopt,
-        sizeof(int))) {
+  if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &sockopt, sizeof(int))) {
     perror("spite_listen");
     exit(-1);
   }
@@ -267,4 +272,36 @@ val_t spite_listen(val_t p) {
   }
 
   return val_wrap_socket(sock);
+}
+
+val_t spite_accept(val_t sock) {
+  int sock_int = val_unwrap_socket(sock);
+  int peer_sock;
+  if ((peer_sock = accept(sock_int, NULL, NULL)) == -1) {
+    perror("spite_listen");
+    exit(-1);
+  }
+
+  return val_wrap_socket(peer_sock);
+}
+
+val_t spite_on_message(val_t sock, val_t lam_entry, val_t proc) {
+  // First argument is messsage, second argument is proc
+  val_t (*fun)(val_t, val_t) = (val_t (*)(val_t, val_t)) lam_entry;
+  int peer_sock = val_unwrap_socket(sock);
+  char *msg_buf = malloc(1024 * sizeof(char));
+  int msg_len = 0;
+
+  // Now that we have a new peer, keep reading and calling the lambda until the
+  // message length is 0, which means the socket is closed
+  while((msg_len = read(peer_sock, msg_buf, 1024)) != 0) {
+    wchar_t *s_msg = ctos_str(msg_buf, msg_len);
+    val_str_t *s_str = make_sstr(s_msg, msg_len);
+
+    (*fun)(val_wrap_str(s_str), proc);
+    free(s_msg);
+  }
+
+  free(msg_buf);
+  return val_wrap_void();
 }
