@@ -147,7 +147,7 @@
           (Mov rdi rax)
           pad-stack
           (Call 'spite_accept)
-          unpad-stack)]))
+          unpad-stack)]
     ['integer? (type-pred mask-int type-int)]
     ['boolean? (let ((ok (gensym 'ok))) 
                     (seq (Mov r9 rax)
