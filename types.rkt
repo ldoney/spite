@@ -35,12 +35,6 @@
          (arithmetic-shift b (- int-shift))]
         [(= type-char (bitwise-and b mask-char))
          (integer->char (arithmetic-shift b (- char-shift)))]
-
-        [(= type-file (bitwise-and b mask-file))
-         (arithmetic-shift b (- file-shift))]
-        [(= type-socket (bitwise-and b mask-socket))
-         (arithmetic-shift b (- socket-shift))]
-
         [(= b val-true)  #t]
         [(= b val-false) #f]
         [(= b val-eof)  eof]
@@ -59,6 +53,18 @@
         [(void? v)  val-void]
         [(empty? v) val-empty]
         [else (error "not an immediate value" v)]))
+
+(define (imm->bits v)
+  (cond [(eof-object? v) val-eof]
+        [(integer? v) (arithmetic-shift v int-shift)]
+        [(char? v)
+         (bitwise-ior type-char
+                      (arithmetic-shift (char->integer v) char-shift))]
+        [(eq? v #t) val-true]
+        [(eq? v #f) val-false]
+        [(void? v)  val-void]
+        [(empty? v) val-empty]))
+
 
 
 (define (imm-bits? v)

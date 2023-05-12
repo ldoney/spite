@@ -32,14 +32,9 @@ val_t write_byte(val_t c)
   return val_wrap_void();
 }
 
-// ****** Spite ********* 
-// TODO lists:
-// - Free stuff after malloc
-// - Close files when done
-// - Error handling when stuff goes wrong
-// - EOF handling
-// - Implement sockets (switch between the two)
-
+// NOTE: we currently do not properly close files or free allocated strings.
+// At some point, we can write this in and fix it. But, for now,
+// as a quick-and-dirty solution, we do not properly free anything.
 
 // Spite string to C string Given a spite string (UTF-32) (i think), converts
 // it to a multibyte character string. Will malloc more data than it needs, so
@@ -86,8 +81,6 @@ val_str_t *make_sstr(wchar_t *str_buf, uint64_t len) {
 
 // file/sock -> bool
 val_t spite_close(val_t fs) {
-  //TODO: Implement some switch for sockets, this is for files
-  //TODO: handle when socket is already closed by remote
   int64_t f = val_unwrap_file(fs);
   if (close(f) == 0) 
     return val_true;
@@ -99,15 +92,11 @@ val_t spite_close(val_t fs) {
 
 // string, char -> file
 val_t spite_open(val_t path, val_t flag) {
-  //TODO: Implement some switch for sockets, this is for files
   int64_t fd;
   int oflags;
   mode_t mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
   val_str_t* p = val_unwrap_str(path);
   val_char_t f = val_unwrap_char(flag);
-
-  //TODO: Unallocate this buffer later
-  //This assumes that each codepoint takes one byte, 
 
   // setup oflags
   switch (f) {
@@ -153,7 +142,7 @@ val_t spite_read_stdin(val_t num_chars) {
 
   // Allocate space for our struct
   val_str_t *str = malloc(sizeof(uint64_t) + (n*sizeof(wchar_t)));
-  str->len = n;
+  str->len = strlen(cstr);
   wmemcpy(str->codepoints, sstr, n);
 
   free(sstr);
@@ -164,10 +153,11 @@ val_t spite_read_stdin(val_t num_chars) {
 val_t spite_read(val_t fs, val_t num_chars) {
   int64_t n = val_unwrap_int(num_chars);
   int fd = val_unwrap_file(fs);
+  int64_t bytes_read = 0;
   char cstr[n];
   val_char_t *codepoints;
 
-  if(read(fd, cstr, n) == -1) {
+  if((bytes_read = read(fd, cstr, n)) == -1) {
     perror("spite_read");
     exit(-1);
   } 
@@ -175,7 +165,7 @@ val_t spite_read(val_t fs, val_t num_chars) {
   wchar_t *sstr = ctos_str(cstr, n);
   val_str_t *str = malloc(sizeof(uint64_t) + (n*sizeof(wchar_t)));
   wmemcpy(str->codepoints, sstr, n);
-  str->len = n;
+  str->len = bytes_read;
 
   free(sstr);
   return val_wrap_str(str);
