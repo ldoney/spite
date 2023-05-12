@@ -1,4 +1,7 @@
 #lang racket
+(define (map f lst) (match lst
+                      ['() '()]
+                      [(cons x rst) (cons (f x) (map f rst))]))
 (define (slice lst n m)   (if (< m n) 
                               lst
                               (sub-list (take-only lst m) n)))
