@@ -9,6 +9,8 @@
 #include <unistd.h>
 #include <wchar.h>
 #include <string.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
 
 val_t read_byte(void)
 {
@@ -68,6 +70,13 @@ val_char_t *ctos_str(char *s, uint64_t len) {
   size_t bytes = mbstowcs(wc, s, len);
 
   return (val_char_t*) wc;
+}
+
+val_str_t *make_sstr(wchar_t *str_buf, uint64_t len) {
+  val_str_t *str = malloc(sizeof(uint64_t) + (len*sizeof(wchar_t)));
+  str->len = len;
+  wmemcpy(str->codepoints, str_buf, len);
+  return str;
 }
 
 // file/sock -> bool
@@ -184,5 +193,105 @@ val_t spite_write(val_t fs, val_t string) {
     error_handler();
 
   free(c_str);
+  return val_wrap_void();
+}
+
+// string, integer -> socket
+val_t spite_open_sock(val_t addr, val_t p) {
+  val_str_t *addr_str = val_unwrap_str(addr);
+  int port = val_unwrap_int(p);
+  char *addr_cstr = stoc_str(addr_str->codepoints, addr_str->len);
+
+  int sock;
+  if ((sock = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
+    perror("spite_open_sock");
+    exit(-1);
+  }
+
+  // Setup remote address
+  struct sockaddr_in remote;
+  remote.sin_family = AF_INET;
+  remote.sin_port = htons(port);
+  if(inet_pton(AF_INET, addr_cstr, &remote.sin_addr) != 1) {
+    perror("spite_open_sock");
+    exit(-1);
+  }
+
+  // Connect to remote destination
+  if(connect(sock, (struct sockaddr *) &remote, sizeof(struct sockaddr_in)) != 0) {
+    perror("spite_open_sock");
+    exit(-1);
+  }
+  
+  free(addr_cstr);
+  return val_wrap_socket(sock);
+}
+
+val_t spite_listen(val_t p) {
+  int port = val_unwrap_int(p);
+  int sockopt = 1;
+
+  int sock;
+  if ((sock = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
+    perror("spite_open_sock");
+    exit(-1);
+  }
+
+  // Set socket options
+  if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &sockopt, sizeof(int))) {
+    perror("spite_listen");
+    exit(-1);
+  }
+
+  // Setup socket addressing
+  struct sockaddr_in listen_addr;
+  listen_addr.sin_family = AF_INET;
+  listen_addr.sin_port = htons(port);
+  listen_addr.sin_addr.s_addr = INADDR_ANY;
+
+  // Bind socket
+  if (bind(sock, (struct sockaddr *) &listen_addr, sizeof(struct sockaddr_in)) != 0) {
+    perror("spite_listen");
+    exit(-1);
+  }
+
+  // Set socket to listen
+  if (listen(sock, 1024) != 0) {
+    perror("spite_listen");
+    exit(-1);
+  }
+
+  return val_wrap_socket(sock);
+}
+
+val_t spite_accept(val_t sock) {
+  int sock_int = val_unwrap_socket(sock);
+  int peer_sock;
+  if ((peer_sock = accept(sock_int, NULL, NULL)) == -1) {
+    perror("spite_listen");
+    exit(-1);
+  }
+
+  return val_wrap_socket(peer_sock);
+}
+
+val_t spite_on_message(val_t sock, val_t lam_entry, val_t proc) {
+  // First argument is messsage, second argument is proc
+  val_t (*fun)(val_t, val_t) = (val_t (*)(val_t, val_t)) lam_entry;
+  int peer_sock = val_unwrap_socket(sock);
+  char *msg_buf = malloc(1024 * sizeof(char));
+  int msg_len = 0;
+
+  // Now that we have a new peer, keep reading and calling the lambda until the
+  // message length is 0, which means the socket is closed
+  while((msg_len = read(peer_sock, msg_buf, 1024)) != 0) {
+    wchar_t *s_msg = ctos_str(msg_buf, msg_len);
+    val_str_t *s_str = make_sstr(s_msg, msg_len);
+
+    (*fun)(val_wrap_str(s_str), proc);
+    free(s_msg);
+  }
+
+  free(msg_buf);
   return val_wrap_void();
 }

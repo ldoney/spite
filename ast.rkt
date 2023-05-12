@@ -50,8 +50,9 @@
 ;;           | 'string? | 'string-length
 ;;           | close    | read
 ;;           | write    | print
-;;           | listen   | on-message
-;;           | closed?  | println
+;;           | listen   | accpet
+;;           | on-message | closed?
+;;           | println
 ;; type Op2  = '+ | '- | '< | '=
 ;;           | 'cons
 ;;           | 'make-vector | 'vector-ref

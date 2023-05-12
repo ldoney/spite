@@ -22,7 +22,9 @@
            (Label 'entry)
            (Push rbx)    ; save callee-saved register	   
            (Mov rbx rdi) ; recv heap pointer
+           (%%% "compile-defines-values")
            (compile-defines-values ds)
+           (%%% "compile main")
            (compile-e e (reverse (define-ids ds)) #f)
            (Add rsp (* 8 (length ds))) ;; pop function definitions
            (Pop rbx)     ; restore callee-save register
@@ -44,8 +46,12 @@
        (Extern 'spite_read)
        (Extern 'spite_read_stdin) ;; Aliased through parser to read
        (Extern 'spite_write)
-       (Extern 'spite_write_stdout))) ;; Aliased through parser to write
-
+       (Extern 'spite_write_stdout) ;; Aliased through parser to write
+       (Extern 'spite_open_sock)
+       (Extern 'spite_listen)
+       (Extern 'spite_accept)
+       (Extern 'spite_on_message)
+       (Extern 'closed)))
 ;; [Listof Defn] -> [Listof Id]
 (define (define-ids ds)
   (match ds
@@ -201,7 +207,8 @@
 ;; Id CEnv -> Asm
 (define (compile-variable x c)
   (let ((i (lookup x c)))
-    (seq (Mov rax (Offset rsp i)))))
+    (seq (%% (string-append "looking up variable " (~a x)))
+         (Mov rax (Offset rsp i)))))
 
 ;; String -> Asm
 (define (compile-string s)
@@ -316,7 +323,8 @@
 
 ;; Expr [Listof Expr] CEnv -> Asm
 (define (compile-app-tail e es c)
-  (seq (compile-es (cons e es) c)
+  (seq (%% "begin compile-app-tail")
+       (compile-es (cons e es) c)
        (move-args (add1 (length es)) (length c))
        (Add rsp (* 8 (length c)))
        (Mov rax (Offset rsp (* 8 (length es))))
@@ -341,11 +349,16 @@
 (define (compile-app-nontail e es c)
   (let ((r (gensym 'ret))
         (i (* 8 (length es))))
-    (seq (Lea rax r)
+    (seq (%% "begin compile-app-nontail")
+         (Lea rax r)
          (Push rax)
+         (%%% "compile-es")
          (compile-es (cons e es) (cons #f c))         
+         (%%% "move proc into rax")
          (Mov rax (Offset rsp i))
+         (%%% "assert-proc")
          (assert-proc rax)
+         (%%% "jump to proc jump address")
          (Xor rax type-proc)
          (Mov rax (Offset rax 0)) ; fetch the code label
          (Mov 'rcx (length es))
@@ -408,7 +421,8 @@
   (match fvs
     ['() (seq)]
     [(cons x fvs)
-     (seq (Mov r8 (Offset rsp (lookup x c)))
+     (seq (%%% (string-append "free-vars-to-heap " (~a x)))
+          (Mov r8 (Offset rsp (lookup x c)))
           (Mov (Offset rbx off) r8)
           (free-vars-to-heap fvs c (+ off 8)))]))
 

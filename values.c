@@ -65,6 +65,16 @@ val_t val_wrap_file(int64_t file)
   return (file << file_shift) | file_type_tag;
 }
 
+int val_unwrap_socket(val_t x)
+{
+  return x >> socket_shift;
+}
+val_t val_wrap_socket(int64_t socket)
+{
+  return (socket << socket_shift) | socket_type_tag;
+}
+
+
 val_char_t val_unwrap_char(val_t x)
 {
   return (val_char_t)(x >> char_shift);
