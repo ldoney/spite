@@ -29,6 +29,9 @@
                                      x))]
       [(If e1 e2 e3)      (If      (r e1) (r e2) (r e3))]
       [(Begin es)         (Begin   (map r es))]
+      [(Cond clist el)    (Cond (map r clist) (r el))]
+      [(Case ev clist el) (Case (r ev) (map r clist) (r el))]
+      [(Clause p b)       (Clause (r p) (r b))]
       [(Let x e1 e2)      (Let     x (r e1) (r e2))]
       [(App e1 es)        (App     (r e1) (map r es))]
       [(Lam f lam)        (Lam     f (match lam
