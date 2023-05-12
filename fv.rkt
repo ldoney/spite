@@ -14,7 +14,7 @@
     [(Prim2 p e1 e2)    (append (fv* e1) (fv* e2))]
     [(Prim3 p e1 e2 e3) (append (fv* e1) (fv* e2) (fv* e3))]
     [(If e1 e2 e3)      (append (fv* e1) (fv* e2) (fv* e3))]
-    [(Begin es)         (append-map (fv* es))]
+    [(Begin es)         (append-map fv* es)]
     [(Let x e1 e2)      (append (fv* e1) (remq* (list x) (fv* e2)))]
     [(App e1 es)        (append (fv* e1) (append-map fv* es))]
     [(Lam f xs e)       (remq* xs (fv* e))]
