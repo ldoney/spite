@@ -6,6 +6,7 @@
 (define eax 'eax) ; 32-bit load/store
 (define rbx 'rbx) ; heap
 (define rdi 'rdi) ; arg
+(define rsi 'rsi) ; arg 2
 (define r8  'r8)  ; scratch
 (define r9  'r9)  ; scratch
 (define r10 'r10) ; scratch
@@ -116,6 +117,24 @@
             (Label zero)
             (Mov rax 0)
             (Label done)))]
+    ['close
+     (seq (assert-file rax)
+          (Mov rdi rax)
+          pad-stack
+          (Call 'spite_close)
+          unpad-stack)]
+    ['read ;; One argument read does read from stdin
+     (seq (assert-natural rax)
+          (Mov rdi rax)
+          pad-stack
+          (Call 'spite_read_stdin)
+          unpad-stack)]
+    ['write ;; One argument write does write to stdout
+     (seq (assert-string rax)
+          (Mov rdi rax)
+          pad-stack
+          (Call 'spite_write_stdout)
+          unpad-stack)]))
     ['integer? (type-pred mask-int type-int)]
     ['boolean? (let ((ok (gensym 'ok))) 
                     (seq (Mov r9 rax)
@@ -272,7 +291,35 @@
           (Add r8 rax)
           (Mov 'eax (Offset r8 8))
           (Sal rax char-shift)
-          (Or rax type-char))]))
+          (Or rax type-char))]
+    ['open
+     (seq (%% "Starting spite_open")
+          (Pop rdi)
+          (assert-string rdi) ; WAS assert-file
+          (assert-char rax)
+          (Mov rsi rax)
+          pad-stack
+          (Call 'spite_open)
+          unpad-stack)]
+    ['read
+     (seq (Pop rdi)
+          (assert-file rdi)
+          (assert-natural rax)
+          (Mov rsi rax)
+          pad-stack
+          (Call 'spite_read)
+          unpad-stack)]
+    ['write
+     (seq (Pop rdi)
+          (assert-file rdi)
+          (assert-string rax)
+          (Mov rsi rax)
+          pad-stack
+          (Call 'spite_write)
+          unpad-stack)]))
+
+
+
 
 ;; Op3 -> Asm
 (define (compile-op3 p)
@@ -327,7 +374,10 @@
          (Je l)
          (Mov rax (value->bits #f))
          (Label l))))
-
+(define assert-file
+  (assert-type mask-file type-file))
+(define assert-socket
+  (assert-type mask-socket type-socket))
 (define assert-integer
   (assert-type mask-int type-int))
 (define assert-char

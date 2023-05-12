@@ -51,11 +51,11 @@
     ['eof                          (Eof)]
     [(? symbol?)                   (Var s)]
     [(list 'quote (list))          (Empty)]
-    [(list (? (op? op0) p0))       (Prim0 p0)]
-    [(list (? (op? op1) p1) e)     (Prim1 p1 (parse-e e))]
-    [(list (? (op? op2) p2) e1 e2) (Prim2 p2 (parse-e e1) (parse-e e2))]
+    [(list (? (op? op0) p0))       (alias (Prim0 p0))]
+    [(list (? (op? op1) p1) e)     (alias (Prim1 p1 (parse-e e)))]
+    [(list (? (op? op2) p2) e1 e2) (alias (Prim2 p2 (parse-e e1) (parse-e e2)))]
     [(list (? (op? op3) p3) e1 e2 e3)
-     (Prim3 p3 (parse-e e1) (parse-e e2) (parse-e e3))]
+     (alias (Prim3 p3 (parse-e e1) (parse-e e2) (parse-e e3)))]
     [(cons (? (op? opN) p) es)     (PrimN p (map parse-e es))]
     [(list 'begin es ...)          (Begin (map parse-e es))]
     [(list 'if e1 e2 e3)
@@ -155,6 +155,11 @@
     [(list 'and p1 p2)
      (PAnd (parse-pat p1) (parse-pat p2))]))
 
+(define (alias p)
+  (match p
+    [(Prim1 'println e) (Begin (cons (Prim1 'write e) (cons (Prim1 'write (Str "\n")) '())))]
+    [_ p]))
+
 (define op0
   '(read-byte peek-byte void))
 
@@ -163,9 +168,15 @@
          not - abs boolean? integer?
          integer->char char->integer
          box unbox empty? cons? box? car cdr
-         vector? vector-length string? string-length))
+         vector? vector-length string? string-length 
+         println
+         close read write print listen on-message closed?))
+
 (define op2
-  '(+ - < = cons eq? make-vector vector-ref make-string string-ref))
+  '(+ - < = cons eq? make-vector vector-ref make-string string-ref 
+
+         open read write open-sock))
+
 (define op3
   '(vector-set!))
 (define opN 

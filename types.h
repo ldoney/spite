@@ -38,4 +38,13 @@
 #define val_void  ((3 << char_shift) | nonchar_type_tag)
 #define val_empty ((4 << char_shift) | nonchar_type_tag)
 
+
+#define file_shift (char_shift+2) //7
+#define file_type_mask ((1<< file_shift) - 1) 
+#define file_type_tag ((0 << (file_shift - 1)) | 56)
+
+#define socket_shift (char_shift+2) //7
+#define socket_type_mask ((1 << socket_shift) - 1)
+#define socket_type_tag ((0 << (socket_shift - 1)) | 120)
+
 #endif

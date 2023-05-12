@@ -37,7 +37,14 @@
   (seq (Extern 'peek_byte)
        (Extern 'read_byte)
        (Extern 'write_byte)
-       (Extern 'raise_error)))
+       (Extern 'raise_error)
+       ;; Spite new externs
+       (Extern 'spite_open)
+       (Extern 'spite_close)
+       (Extern 'spite_read)
+       (Extern 'spite_read_stdin) ;; Aliased through parser to read
+       (Extern 'spite_write)
+       (Extern 'spite_write_stdout))) ;; Aliased through parser to write
 
 ;; [Listof Defn] -> [Listof Id]
 (define (define-ids ds)
@@ -93,7 +100,7 @@
               (copy-env-to-stack fvs 8)
               (compile-e e env #f)
               (Add rsp (* 8 (length env)))))])
-      (Ret))])))
+              (Ret))])))
 
 (define (parse-fun-case-clause cs fvs end)
   (match cs

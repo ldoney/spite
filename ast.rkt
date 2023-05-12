@@ -48,10 +48,16 @@
 ;;           | 'empty? | 'cons? | 'box?
 ;;           | 'vector? | 'vector-length
 ;;           | 'string? | 'string-length
+;;           | close    | read
+;;           | write    | print
+;;           | listen   | on-message
+;;           | closed?  | println
 ;; type Op2  = '+ | '- | '< | '=
 ;;           | 'cons
 ;;           | 'make-vector | 'vector-ref
 ;;           | 'make-string | 'string-ref
+;;           |  open        | read
+;;           | write        | open-sock
 ;; type Op3  = 'vector-set!
 ;; type CondClause = (Clause Expr Expr)
 ;; type CaseClause = (Clause [Listof Datum] Expr)

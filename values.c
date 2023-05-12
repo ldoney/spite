@@ -20,6 +20,8 @@ type_t val_typeof(val_t x)
     return T_INT;
   if ((char_type_mask & x) == char_type_tag)
     return T_CHAR;
+  if ((file_type_mask & x) == file_type_tag)
+    return T_FILE;
 
   switch (x) {
   case val_true:
@@ -52,6 +54,15 @@ int val_unwrap_bool(val_t x)
 val_t val_wrap_bool(int b)
 {
   return b ? val_true : val_false;
+}
+
+int val_unwrap_file(val_t x)
+{
+  return x >> file_shift;
+}
+val_t val_wrap_file(int64_t file)
+{
+  return (file << file_shift) | file_type_tag;
 }
 
 val_char_t val_unwrap_char(val_t x)
