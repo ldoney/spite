@@ -19,7 +19,7 @@
       [(cons x rst)       (cons (r x) (r rst))]
       [(Prim1 p e)        (Prim1 p (r e))]
       [(Prim2 p e1 e2)    (Prim2 p (r e1) (r e2))]
-      [(Prim3 p e1 e2 e3) (Prim2 p (r e1) (r e2) (r e3))]
+      [(Prim3 p e1 e2 e3) (Prim3 p (r e1) (r e2) (r e3))]
       [(Var x)            (Var     (if (and 
                                          (not (string-contains? (symbol->string x) ":")) 
                                          (in-list? equal? x fvs)) 

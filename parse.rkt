@@ -118,7 +118,7 @@
      (PAnd (parse-pat p1) (parse-pat p2))]))
 
 (define op0
-  '(read-byte peek-byte void))
+  '(read-byte peek-byte void throw-error))
 
 (define op1
   '(add1 sub1 zero? char? write-byte eof-object?
@@ -127,8 +127,9 @@
          vector? vector-length string? string-length))
 (define op2
   '(+ - < = cons eq? make-vector vector-ref make-string string-ref))
+
 (define op3
-  '(vector-set!))
+  '(vector-set! string-assign))
 
 (define (op? ops)
   (λ (x)
