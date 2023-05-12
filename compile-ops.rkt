@@ -136,7 +136,7 @@
           (Mov rdi rax)
           pad-stack
           (Call 'spite_write_stdout)
-          unpad-stack)]))
+          unpad-stack)]
     ['integer? (type-pred mask-int type-int)]
     ['boolean? (let ((ok (gensym 'ok))) 
                     (seq (Mov r9 rax)
@@ -381,10 +381,7 @@
         (Sub r10 r8)
         (Mov rax r10)
         (%%% "end string assign")
-      )
-    ]
-  )
-)
+      )]))
 
 (define (compile-opN p)
   (match p

@@ -6,7 +6,9 @@
 ; String Defn -> Defn
 (define (attach-names name d)
   (match d
-    [(Defn f xs e) (Defn (append-name-to-symbol name f) xs (replace-in-namespace name (remq* xs (fv e)) e))]))
+    [(Defn f fun) (Defn (append-name-to-symbol name f) (match fun
+      [(FunPlain xs e)  (FunPlain xs  (replace-in-namespace name (remq* xs (fv e)) e))]
+      [(FunRest xs x e) (FunRest xs x (replace-in-namespace name (remq* (cons x xs) (fv e)) e))]))]))
 
 ; String Symbol -> Symbol
 (define (append-name-to-symbol name x)
@@ -29,7 +31,9 @@
       [(Begin es)         (Begin   (map r es))]
       [(Let x e1 e2)      (Let     x (r e1) (r e2))]
       [(App e1 es)        (App     (r e1) (map r es))]
-      [(Lam f xs e1)      (Lam     f xs (replace-in-namespace name (remq* xs fvs) e1))]
+      [(Lam f lam)        (Lam     f (match lam
+        [(LamPlain xs e)  (LamPlain xs (replace-in-namespace name (remq* xs fvs) e))]
+        [(LamRest xs x e) (LamRest xs x (replace-in-namespace name (remq* (cons x xs) fvs) e))]))]
       [(Match e ps es)    (Match   (r e) ps (map r es))]
       [x                  x])))
 
