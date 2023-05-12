@@ -1,6 +1,6 @@
 #lang racket
 (require "ast.rkt")
-(provide fv)
+(provide fv fv*)
 
 ;; Expr -> [Listof Id]
 ;; List all of the free variables in e
@@ -15,8 +15,8 @@
     [(Prim3 p e1 e2 e3) (append (fv* e1) (fv* e2) (fv* e3))]
     [(If e1 e2 e3)      (append (fv* e1) (fv* e2) (fv* e3))]
     [(Begin es)         (append-map fv* es)]
-    [(Let xs es e2)     (append (append-map fv* es) (remq* (list xs) (fv* e2)))]
-    [(Let* xs es e2)    (append (append-map fv* es) (remq* (list xs) (fv* e2)))]
+    [(Let xs es e2)     (append (append-map fv* es) (remq* xs (fv* e2)))]
+    [(Let* xs es e2)    (append (remq* xs (append-map fv* es)) (remq* xs (fv* e2)))]
     [(App e1 es)        (append (fv* e1) (append-map fv* es))]
     [(Lam f lam)        (remq* (get-lambda-xs lam) (map-on-lambda-e fv* lam))]
     [(Match e ps es)    (append (fv* e) (append-map fv-clause* ps es))]

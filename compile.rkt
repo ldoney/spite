@@ -108,41 +108,6 @@
               (Add rsp (* 8 (length env)))))])
               (Ret))])))
 
-(define (parse-fun-case-clause cs fvs end)
-  (match cs
-    ['() (seq 
-          (Jmp 'raise_error)
-          (Label end)
-          (Ret))]
-    [(cons (LamPlain xs e) rst) 
-      (let ((skip (gensym 'skip_case)) (env (append (reverse fvs) (reverse xs) (list #f))))
-        (seq 
-          (Cmp rcx (length xs))
-          (Jne skip)
-
-          (Mov rax (Offset rsp (* 8 (length xs))))
-          (Xor rax type-proc)
-          (copy-env-to-stack fvs 8)
-          (compile-e e env #f)
-          (Add rsp (* 8 (length env)))
-          
-          (Label skip)
-          (parse-fun-case-clause rst fvs end)))
-    ]
-    [(cons (LamRest xs x e) rst) 
-      (let ((skip (gensym 'skip_case)) (env (append (reverse fvs) (length x) (reverse xs) (list #f))))
-        (seq 
-          (Cmp rcx (length xs))
-          (Jl skip)
-          
-          (Sub 'rcx (length xs))
-          (pop-rcx-times (gensym 'start_rst) (gensym 'end_rst))
-          (copy-env-to-stack fvs 8)
-          (compile-e e env #f)
-          (Add rsp (* 8 (length env)))
-
-          (Label skip)
-          (parse-fun-case-clause rst fvs end)))]))
 
 (define (pop-rcx-times start-lbl end-lbl)
   (seq 
