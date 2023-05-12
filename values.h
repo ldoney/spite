@@ -14,6 +14,7 @@ typedef enum type_t {
   T_CHAR,
   T_EOF,  
   T_VOID,
+  T_FILE,
   T_EMPTY,
   /* pointers */
   T_BOX,
@@ -53,6 +54,9 @@ val_t val_wrap_int(int64_t i);
 
 int val_unwrap_bool(val_t x);
 val_t val_wrap_bool(int b);
+
+int val_unwrap_file(val_t x);
+val_t val_wrap_file(int64_t f);
 
 val_char_t val_unwrap_char(val_t x);
 val_t val_wrap_char(val_char_t b);

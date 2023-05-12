@@ -6,6 +6,7 @@
 (define eax 'eax) ; 32-bit load/store
 (define rbx 'rbx) ; heap
 (define rdi 'rdi) ; arg
+(define rsi 'rsi) ; arg 2
 (define r8  'r8)  ; scratch
 (define r9  'r9)  ; scratch
 (define r10 'r10) ; scratch
@@ -34,6 +35,16 @@
     ['sub1
      (seq (assert-integer rax)
           (Sub rax (value->bits 1)))]
+    ['abs 
+     (seq (Mov r9 rax)
+          (twos-complement r9)
+          (Cmp rax 0)
+          (Cmovl rax r9))]
+    ['- (twos-complement rax)]
+    ['not (seq (Cmp rax val-false)
+               (Mov rax (value->bits #f))
+               (Mov r9  (value->bits #t))
+               (Cmove rax r9))]
     ['zero?
      (seq (assert-integer rax)
           (eq-value 0))]
@@ -107,7 +118,40 @@
             (Jmp done)
             (Label zero)
             (Mov rax 0)
-            (Label done)))]))
+            (Label done)))]
+    ['close
+     (seq (assert-file rax)
+          (Mov rdi rax)
+          pad-stack
+          (Call 'spite_close)
+          unpad-stack)]
+    ['read ;; One argument read does read from stdin
+     (seq (assert-natural rax)
+          (Mov rdi rax)
+          pad-stack
+          (Call 'spite_read_stdin)
+          unpad-stack)]
+    ['write ;; One argument write does write to stdout
+     (seq (assert-string rax)
+          (Mov rdi rax)
+          pad-stack
+          (Call 'spite_write_stdout)
+          unpad-stack)]))
+    ['integer? (type-pred mask-int type-int)]
+    ['boolean? (let ((ok (gensym 'ok))) 
+                    (seq (Mov r9 rax)
+                         (Mov rax val-true)
+                         (generate-long-comparisons (list val-true val-false) ok)
+                         (Mov rax val-false)
+                         (Label ok)))]))
+
+(define (generate-long-comparisons lst oklabel)
+  (match lst
+    ['() '()]
+    [(cons val rst) 
+     (seq (Cmp r9 val) 
+          (Je oklabel) 
+          (generate-long-comparisons rst oklabel))]))
 
 ;; Op2 -> Asm
 (define (compile-op2 p)
@@ -250,8 +294,33 @@
           (Mov 'eax (Offset r8 8))
           (Sal rax char-shift)
           (Or rax type-char))]
-  )
-)
+    ['open
+     (seq (%% "Starting spite_open")
+          (Pop rdi)
+          (assert-string rdi) ; WAS assert-file
+          (assert-char rax)
+          (Mov rsi rax)
+          pad-stack
+          (Call 'spite_open)
+          unpad-stack)]
+    ['read
+     (seq (Pop rdi)
+          (assert-file rdi)
+          (assert-natural rax)
+          (Mov rsi rax)
+          pad-stack
+          (Call 'spite_read)
+          unpad-stack)]
+    ['write
+     (seq (Pop rdi)
+          (assert-file rdi)
+          (assert-string rax)
+          (Mov rsi rax)
+          pad-stack
+          (Call 'spite_write)
+          unpad-stack)]))
+
+
 
 ;; Op3 -> Asm
 (define (compile-op3 p)
@@ -317,6 +386,20 @@
   )
 )
 
+(define (compile-opN p)
+  (match p
+    ['+ (let ((opnloop (gensym 'opnloop)) (endloop (gensym 'endloop))) 
+             (seq (Pop r10)
+                  (Mov rax (value->bits 0))
+                  (Label opnloop)
+                  (Cmp r10 (value->bits 1))
+                  (Jl endloop)
+                  (Pop r8)
+                  (assert-integer r8)
+                  (Add rax r8)
+                  (Sub r10 (value->bits 1))
+                  (Jmp opnloop)
+                  (Label endloop)))]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -335,7 +418,10 @@
          (Je l)
          (Mov rax (value->bits #f))
          (Label l))))
-
+(define assert-file
+  (assert-type mask-file type-file))
+(define assert-socket
+  (assert-type mask-socket type-socket))
 (define assert-integer
   (assert-type mask-int type-int))
 (define assert-char
@@ -403,3 +489,12 @@
 ;; Undo the stack alignment after a call
 (define unpad-stack
   (seq (Add rsp r15)))
+
+
+;; Reg
+;; Performs twos complement on register
+(define (twos-complement reg)
+  (seq (Sar reg 1)
+       (Not reg)
+       (Add reg 1)
+       (Sal reg 1)))

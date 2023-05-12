@@ -1,5 +1,7 @@
 #lang racket
 (require "test-runner.rkt"
+         "randomized.rkt"
+         "../ast.rkt"
          "../parse.rkt"
          "../compile.rkt"
          "../unload-bits-asm.rkt"
@@ -16,3 +18,7 @@
                   (match (asm-interp/io (compile (parse p)) s)
                     ['err 'err]
                     [(cons r o) (cons (unload/free r) o)])))
+(test-runner-dupe+            (λ p (unload/free (asm-interp (compile (parse p))))))
+(test-runner-fraud+           (λ p (unload/free (asm-interp (compile (parse p))))))
+(test-runner-randomized-dupe+ (λ p (unload/free (asm-interp (compile (parse p))))))
+(test-runner-funs             (λ p (unload/free (asm-interp (compile (parse p))))))

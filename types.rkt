@@ -11,10 +11,19 @@
 (define type-proc      #b101)
 (define int-shift  (+ 1 imm-shift))
 (define char-shift (+ 2 imm-shift))
+(define file-shift (+ 2 char-shift))
+(define socket-shift (+ 2 char-shift))
 (define type-int      #b0000)
 (define mask-int      #b1111)
 (define type-char    #b01000)
 (define mask-char    #b11111)
+
+(define type-file      #b0111000)
+(define mask-file      #b1111111)
+
+(define type-socket   #b1111000)
+(define mask-socket   #b1111111)
+
 (define val-true   #b0011000)
 (define val-false  #b0111000)
 (define val-eof    #b1011000)
@@ -44,6 +53,18 @@
         [(void? v)  val-void]
         [(empty? v) val-empty]
         [else (error "not an immediate value" v)]))
+
+(define (imm->bits v)
+  (cond [(eof-object? v) val-eof]
+        [(integer? v) (arithmetic-shift v int-shift)]
+        [(char? v)
+         (bitwise-ior type-char
+                      (arithmetic-shift (char->integer v) char-shift))]
+        [(eq? v #t) val-true]
+        [(eq? v #f) val-false]
+        [(void? v)  val-void]
+        [(empty? v) val-empty]))
+
 
 
 (define (imm-bits? v)
