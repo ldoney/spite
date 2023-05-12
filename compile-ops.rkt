@@ -377,6 +377,8 @@
             (Push rsi)
             (Push rdi)
 
+            (Mov 'rcx 1) ;; Set arity check
+
             ;; Get label address
             (Xor rax type-proc)
             (Mov rax (Offset rax 0))

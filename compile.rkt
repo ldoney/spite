@@ -87,7 +87,8 @@
       (match lam
         [(LamPlain xs e)
           (let ((env  (append (reverse fvs) (reverse xs) (list #f))))
-            (seq (Mov rax (Offset rsp (* 8 (length xs))))
+            (seq (%% "Lam Plain start")
+                 (Mov rax (Offset rsp (* 8 (length xs))))
                  (Xor rax type-proc)
                  (Cmp 'rcx (length xs))
                  (Jne 'raise_error)
