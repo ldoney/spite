@@ -17,13 +17,6 @@
 (define mask-int      #b1111)
 (define type-char    #b01000)
 (define mask-char    #b11111)
-
-(define type-file      #b0111000)
-(define mask-file      #b1111111)
-
-(define type-socket   #b1111000)
-(define mask-socket   #b1111111)
-
 (define val-true   #b0011000)
 (define val-false  #b0111000)
 (define val-eof    #b1011000)
@@ -35,12 +28,6 @@
          (arithmetic-shift b (- int-shift))]
         [(= type-char (bitwise-and b mask-char))
          (integer->char (arithmetic-shift b (- char-shift)))]
-
-        [(= type-file (bitwise-and b mask-file))
-         (arithmetic-shift b (- file-shift))]
-        [(= type-socket (bitwise-and b mask-socket))
-         (arithmetic-shift b (- socket-shift))]
-
         [(= b val-true)  #t]
         [(= b val-false) #f]
         [(= b val-eof)  eof]
