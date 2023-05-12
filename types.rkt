@@ -45,6 +45,18 @@
         [(empty? v) val-empty]
         [else (error "not an immediate value" v)]))
 
+(define (imm->bits v)
+  (cond [(eof-object? v) val-eof]
+        [(integer? v) (arithmetic-shift v int-shift)]
+        [(char? v)
+         (bitwise-ior type-char
+                      (arithmetic-shift (char->integer v) char-shift))]
+        [(eq? v #t) val-true]
+        [(eq? v #f) val-false]
+        [(void? v)  val-void]
+        [(empty? v) val-empty]))
+
+
 
 (define (imm-bits? v)
   (zero? (bitwise-and v imm-mask)))
