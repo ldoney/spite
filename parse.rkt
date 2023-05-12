@@ -141,7 +141,7 @@
     ['() '()]
     [(cons l rst) 
      (cons l (remove-dupes (filter 
-              (lambda (e) (not (libs-equal l e))) 
+              (lambda (e) (not (libs-equal? l e))) 
               rst)))]))
 
 ; Lib | [Listof Lib] -> [Listof Lib]
@@ -160,13 +160,13 @@
 (define (includes->libs cur-includes includes)
   (match includes
     ['() '()]
-    [(cons (Include file name) rst) (cons-nodupes libs-equal 
+    [(cons (Include file name) rst) (cons-nodupes libs-equal?
                                       (match (process-include cur-includes file)
                                         [(Lib _ l-ds l-deps) (Lib name l-ds l-deps)]) 
                                       (includes->libs cur-includes rst))]))
 
 ; Lib Lib -> Bool
-(define (libs-equal lib1 lib2)
+(define (libs-equal? lib1 lib2)
   (match lib1
     [(Lib name1 _ _)
      (match lib2
