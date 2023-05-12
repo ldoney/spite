@@ -23,7 +23,9 @@
                      unpad-stack)]
     ['peek-byte (seq pad-stack
                      (Call 'peek_byte)
-                     unpad-stack)]))
+                     unpad-stack)]
+    ['throw-error (seq (Jmp 'raise_error_align))]
+                     ))
 
 ;; Op1 -> Asm
 (define (compile-op1 p)
@@ -406,7 +408,47 @@
           (Sal r10 3)
           (Add r8 r10)
           (Mov (Offset r8 8) rax)
-          (Mov rax (value->bits (void))))]))
+          (Mov rax (value->bits (void))))]
+    ['string-assign 
+      (seq
+        (%%% "string-asssign")
+        ;rax holds the char 
+        ;pop index into r8
+        (Pop r8)
+        ;pop string into r10
+        (Pop r10)
+
+        
+        (assert-char rax)
+        (assert-string r10)
+        (assert-integer r8)
+        ;get rid of the type branding for int to do math later
+        ;(Xor r8 type-int)
+        (Sar r8 int-shift)
+
+        ;check that the index is less than the length
+        ;(Cmp (Offset r10 0) r8)
+        ;(Jg 'raise_error_align)
+
+        
+        ;do index * 4
+        (Sal r8 2)
+
+        
+        ;char->integer
+        (Sar rax char-shift)
+
+        
+        ;increment the place in memory to match the index
+        (Add r10 r8)  
+
+        ;move the char into the correct cell to replace the previous value
+        (Mov (Offset r10 4) eax)  ; 4 to account for the length, shouldnt it be 8?
+        
+        (Sub r10 r8)
+        (Mov rax r10)
+        (%%% "end string assign")
+      )]))
 
 (define (compile-opN p)
   (match p

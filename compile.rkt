@@ -1,6 +1,6 @@
 #lang racket
 (provide (all-defined-out))
-(require "ast.rkt" "types.rkt" "lambdas.rkt" "fv.rkt" "compile-ops.rkt" a86/ast)
+(require "ast.rkt" "types.rkt" "lambdas.rkt" "fv.rkt" "compile-ops.rkt" "namespacing.rkt" a86/ast)
 
 ;; Registers used
 (define rax 'rax) ; return
@@ -16,24 +16,25 @@
 ;; Prog -> Asm
 (define (compile p)
   (match p
-    [(Prog ds e)
-     (prog (externs)
-           (Global 'entry)
-           (Label 'entry)
-           (Push rbx)    ; save callee-saved register	   
-           (Mov rbx rdi) ; recv heap pointer
-           (%%% "compile-defines-values")
-           (compile-defines-values ds)
-           (%%% "compile main")
-           (compile-e e (reverse (define-ids ds)) #f)
-           (Add rsp (* 8 (length ds))) ;; pop function definitions
-           (Pop rbx)     ; restore callee-save register
-           (Ret)
-           (compile-defines ds)
-           (compile-lambda-defines (lambdas p))
-           (Label 'raise_error_align)
-           pad-stack
-           (Call 'raise_error))]))
+    [(Prog ds libs e)
+     (let ((full-ds (merge-ds-libs ds libs)))
+      (prog (externs)
+            (Global 'entry)
+            (Label 'entry)
+            (Push rbx)    ; save callee-saved register	   
+            (Mov rbx rdi) ; recv heap pointer
+            (%%% "compile-defines-values")
+            (compile-defines-values full-ds)
+            (%%% "compile main")
+            (compile-e e (reverse (define-ids full-ds)) #f)
+            (Add rsp (* 8 (length full-ds))) ;; pop function definitions
+            (Pop rbx)     ; restore callee-save register
+            (Ret)
+            (compile-defines full-ds)
+            (compile-lambda-defines (lambdas p))
+            (Label 'raise_error_align)
+            pad-stack
+            (Call 'raise_error)))]))
 
 (define (externs)
   (seq (Extern 'peek_byte)

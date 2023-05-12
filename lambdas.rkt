@@ -1,5 +1,5 @@
 #lang racket
-(require "ast.rkt")
+(require "ast.rkt" "namespacing.rkt")
 (provide lambdas)
 
 
@@ -7,8 +7,8 @@
 ;; List all of the lambda expressions in p
 (define (lambdas p)
   (match p
-    [(Prog ds e)
-     (append (lambdas-ds ds) (lambdas-e e))]))
+    [(Prog ds libs e)
+     (append (lambdas-ds (merge-ds-libs ds libs)) (lambdas-e e))]))
 
 ;; Defns -> [Listof Lam]
 ;; List all of the lambda expressions in ds
@@ -31,6 +31,9 @@
     [(Begin es)         (append-map lambdas-e es)]
     [(Let xs es e2)     (append (append-map lambdas-e es) (lambdas-e e2))]
     [(Let* xs es e2)    (append (append-map lambdas-e es) (lambdas-e e2))]
+    [(Cond clist el)    (append (append-map lambdas-e clist) (lambdas-e el))]
+    [(Case ev clist el) (append (lambdas-e ev) (append-map lambdas-e clist) (lambdas-e el))]
+    [(Clause p b)       (append (lambdas-e p) (lambdas-e b))]
     [(App e1 es)        (append (lambdas-e e1) (append-map lambdas-e es))]
     [(Lam f lam)        (cons (Lam f lam) (map-on-lambda-e lambdas-e lam))]
     [(Match e ps es)    (append (lambdas-e e) (append-map lambdas-e es))]
