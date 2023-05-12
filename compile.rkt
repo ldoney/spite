@@ -5,8 +5,11 @@
 ;; Registers used
 (define rax 'rax) ; return
 (define rbx 'rbx) ; heap
+(define rcx 'rcx) ; arity
+(define rdx 'rdx) ; arity
 (define rsp 'rsp) ; stack
 (define rdi 'rdi) ; arg
+(define r11 'r11) ; scrap
 
 ;; type CEnv = [Listof Id]
 
@@ -47,7 +50,7 @@
 (define (define-ids ds)
   (match ds
     ['() '()]
-    [(cons (Defn f xs e) ds)
+    [(cons (Defn f fun) ds)
      (cons f (define-ids ds))]))
 
 ;; [Listof Defn] -> Asm
@@ -60,9 +63,7 @@
 
 ;; Defn -> Asm
 (define (compile-define d)
-  (match d
-    [(Defn f xs e)
-     (compile-lambda-define (Lam f xs e))]))
+  (compile-lambda-define (fun->lam d)))
 
 ;; [Listof Lam] -> Asm
 (define (compile-lambda-defines ls)
@@ -74,17 +75,87 @@
 
 ;; Lam -> Asm
 (define (compile-lambda-define l)
-  (let ((fvs (fv l)))
-    (match l
-      [(Lam f xs e)
-       (let ((env  (append (reverse fvs) (reverse xs) (list #f))))
-         (seq (Label (symbol->label f))
+  (let ((fvs (fv l))) (match l
+    [(Lam f lam) (seq 
+      (Label (symbol->label f))
+      (match lam
+        [(LamPlain xs e)
+          (let ((env  (append (reverse fvs) (reverse xs) (list #f))))
+            (seq (Mov rax (Offset rsp (* 8 (length xs))))
+                 (Xor rax type-proc)
+                 (Cmp 'rcx (length xs))
+                 (Jne 'raise_error)
+                 (copy-env-to-stack fvs 8)
+                 (compile-e e env #f)
+                 (Add rsp (* 8 (length env)))))]
+        [(LamRest xs x e)
+          (let ((env  (append (reverse fvs) (list x) (reverse xs) (list #f))))
+            (seq 
               (Mov rax (Offset rsp (* 8 (length xs))))
               (Xor rax type-proc)
+              (Cmp 'rcx (length xs))
+              (Jl 'raise_error)
+              (Sub 'rcx (length xs))
+              (pop-rcx-times (gensym 'start_rst) (gensym 'end_rst))
               (copy-env-to-stack fvs 8)
-              (compile-e e env #t)
-              (Add rsp (* 8 (length env))) ; pop env
-              (Ret)))])))
+              (compile-e e env #f)
+              (Add rsp (* 8 (length env)))))])
+              (Ret))])))
+
+(define (parse-fun-case-clause cs fvs end)
+  (match cs
+    ['() (seq 
+          (Jmp 'raise_error)
+          (Label end)
+          (Ret))]
+    [(cons (LamPlain xs e) rst) 
+      (let ((skip (gensym 'skip_case)) (env (append (reverse fvs) (reverse xs) (list #f))))
+        (seq 
+          (Cmp rcx (length xs))
+          (Jne skip)
+
+          (Mov rax (Offset rsp (* 8 (length xs))))
+          (Xor rax type-proc)
+          (copy-env-to-stack fvs 8)
+          (compile-e e env #f)
+          (Add rsp (* 8 (length env)))
+          
+          (Label skip)
+          (parse-fun-case-clause rst fvs end)))
+    ]
+    [(cons (LamRest xs x e) rst) 
+      (let ((skip (gensym 'skip_case)) (env (append (reverse fvs) (length x) (reverse xs) (list #f))))
+        (seq 
+          (Cmp rcx (length xs))
+          (Jl skip)
+          
+          (Sub 'rcx (length xs))
+          (pop-rcx-times (gensym 'start_rst) (gensym 'end_rst))
+          (copy-env-to-stack fvs 8)
+          (compile-e e env #f)
+          (Add rsp (* 8 (length env)))
+
+          (Label skip)
+          (parse-fun-case-clause rst fvs end)))]))
+
+(define (pop-rcx-times start-lbl end-lbl)
+  (seq 
+      (Mov rax (imm->bits '()))
+      (Push rax)
+      (Label start-lbl)
+      (Cmp rcx 0)
+      (Je end-lbl)
+      (Pop rax)
+      (Mov (Offset rbx 0) rax)
+      (Pop rax)
+      (Mov (Offset rbx 8) rax)
+      (Mov rax rbx)
+      (Or rax type-cons)
+      (Add rbx 16)
+      (Push rax)
+      (Sub rcx 1)
+      (Jmp start-lbl)
+      (Label end-lbl)))
 
 ;; [Listof Id] Int -> Asm
 ;; Copy the closure environment at given offset to stack
@@ -110,12 +181,18 @@
     [(Prim1 p e)        (compile-prim1 p e c)]
     [(Prim2 p e1 e2)    (compile-prim2 p e1 e2 c)]
     [(Prim3 p e1 e2 e3) (compile-prim3 p e1 e2 e3 c)]
+    [(PrimN p es)       (compile-primN p es c t?)]
     [(If e1 e2 e3)      (compile-if e1 e2 e3 c t?)]
     [(Begin es)         (compile-begin es c t?)]
-    [(Let x e1 e2)      (compile-let x e1 e2 c t?)]
+    [(Let (list x ...) (list e1 ...) e2)
+     (compile-let x e1 e2 c t?)]
+    [(Let* (list xs ...) (list es ...) e2)
+     (compile-let* (map list xs es) e2 c t?)]
     [(App e es)         (compile-app e es c t?)]
-    [(Lam f xs e)       (compile-lam f xs e c)]
-    [(Match e ps es)    (compile-match e ps es c t?)]))
+    [(Lam f lam)        (compile-lam f lam c)]
+    [(Match e ps es)    (compile-match e ps es c t?)]
+    [(Cond clist el)    (compile-cond clist el c t?)]
+    [(Case ev clist el) (compile-case ev clist el c t?)]))
 
 ;; Value -> Asm
 (define (compile-value v)
@@ -173,6 +250,21 @@
        (compile-e e3 (cons #f (cons #f c)) #f)
        (compile-op3 p)))
 
+;; OpN [Listof Expr] CEnv -> Asm
+(define (compile-primN p es c t?)
+  (seq (compile-e* es c #f)
+       (Push (value->bits (length es)))
+       (compile-opN p)))
+
+;; [Listof Expr] CEnv -> Asm
+(define (compile-e* es c t?)
+  (match es
+    ['() (seq)]
+    [(cons e es)
+     (seq (compile-e e c #f)
+          (Push rax)
+          (compile-e* es (cons #f c) t?))]))
+
 ;; Expr Expr Expr CEnv Bool -> Asm
 (define (compile-if e1 e2 e3 c t?)
   (let ((l1 (gensym 'if))
@@ -194,15 +286,30 @@
                        (compile-begin rst c t?))]))
 
 ;; Id Expr Expr CEnv Bool -> Asm
-(define (compile-let x e1 e2 c t?)
+(define (compile-let1 x e1 e2 c t?)
   (seq (compile-e e1 c #f)
        (Push rax)
        (compile-e e2 (cons x c) t?)
        (Add rsp 8)))
 
+;; [ListOf Id] [ListOf Expr] Expr CEnv Bool -> Asm
+(define (compile-let xs e1s e2 c t?)
+  (seq (compile-e* (reverse e1s) c #f)
+       (compile-e e2 (append xs c) t?)
+       (Add rsp (* 8 (length e1s)))))
+
+;; [ListOf Id] [ListOf Expr] Expr CEnv Bool -> Asm
+(define (compile-let* ls e2 c t?)
+  (match ls
+    ['() (seq (compile-e e2 c t?)
+              (Sub rsp (* 8 (length ls))))]
+    [(cons (list x e) rst) (seq (compile-e e c #f)
+                                (Push rax)
+                                (compile-let* rst e2 (cons x c) #f)
+                                (Add rsp 8))]))
+
 ;; Id [Listof Expr] CEnv Bool -> Asm
 (define (compile-app f es c t?)
-  ;(compile-app-nontail f es c)
   (if t?
       (compile-app-tail f es c)
       (compile-app-nontail f es c)))
@@ -216,6 +323,7 @@
        (assert-proc rax)
        (Xor rax type-proc)
        (Mov rax (Offset rax 0))
+       (Mov 'rcx (length es))
        (Jmp rax)))
 
 ;; Integer Integer -> Asm
@@ -240,6 +348,7 @@
          (assert-proc rax)
          (Xor rax type-proc)
          (Mov rax (Offset rax 0)) ; fetch the code label
+         (Mov 'rcx (length es))
          (Jmp rax)
          (Label r))))
 
@@ -255,8 +364,8 @@
 (define (alloc-defines ds off)
   (match ds
     ['() (seq)]
-    [(cons (Defn f xs e) ds)
-     (let ((fvs (fv (Lam f xs e))))
+    [(cons (Defn f fun) ds)
+     (let ((fvs (fv (Lam f (fun->lam fun)))))
        (seq (Lea rax (symbol->label f))
             (Mov (Offset rbx off) rax)         
             (Mov rax rbx)
@@ -270,8 +379,8 @@
 (define (init-defines ds c off)
   (match ds
     ['() (seq)]
-    [(cons (Defn f xs e) ds)
-     (let ((fvs (fv (Lam f xs e))))
+    [(cons (Defn f fun) ds)
+     (let ((fvs (fv (Lam f (fun->lam fun)))))
        (seq (free-vars-to-heap fvs c off)
             (init-defines ds c (+ off (* 8 (add1 (length fvs)))))))]))
 
@@ -280,12 +389,12 @@
 (define (add-rbx-defines ds n)
   (match ds
     ['() (seq (Add rbx (* n 8)))]
-    [(cons (Defn f xs e) ds)
-     (add-rbx-defines ds (+ n (add1 (length (fv (Lam f xs e))))))]))
+    [(cons (Defn f fun) ds)
+     (add-rbx-defines ds (+ n (add1 (length (fv (Lam f (fun->lam fun)))))))]))
 
 ;; Id [Listof Id] Expr CEnv -> Asm
-(define (compile-lam f xs e c) 
-  (let ((fvs (fv (Lam f xs e))))
+(define (compile-lam f lam c) 
+  (let ((fvs (fv (Lam f lam))))
     (seq (Lea rax (symbol->label f))
          (Mov (Offset rbx 0) rax)
          (free-vars-to-heap fvs c 8)
@@ -413,6 +522,60 @@
                    (Add rsp (* 8 (length cm))) ; haven't pushed anything yet
                    (Jmp next))
               cm2))])])]))
+
+; TODO Check to make sure the tail call is passing around properly
+;; [ListOf CondClause] Expr -> Asm
+(define (compile-cond clist el c t?)
+  (compile-cond-rec clist el (gensym 'end) c t?))
+
+(define (compile-cond-rec clist el end c t?)
+  (let* ([exp-end-label (gensym 'condend)])
+    (match clist
+      ['() (seq (compile-e el c t?) 
+                (Label end))]
+      [(cons (Clause p b) lst) 
+       (seq (compile-e p c #f)
+            (Cmp rax val-false)
+            (Je exp-end-label)
+            (compile-e b c #f)
+            (Jmp end)
+            (Label exp-end-label)
+            (compile-cond-rec lst el end c t?))])))
+
+(define (compile-case ev clist el c t?)
+  (seq (compile-e ev c #f)
+       (Mov r11 rax)
+       (compile-case-rec clist el (gensym 'end) c t?)))
+
+(define (compile-case-rec clist el end c t?)
+  (let* ([exp-end-label (gensym 'caseend)] )
+    (match clist
+      ['() (seq (compile-e el c t?) 
+                (Label end))]
+      [(cons (Clause p b) rst) 
+       (seq (in-list-asm p (gensym 'inlistfin))
+            (Cmp rax val-false)
+            (Je exp-end-label)
+            (compile-e b c #f)
+            (Jmp end)
+            (Label exp-end-label)
+            (compile-case-rec rst el end c t?))])))
+
+; Checks if the value in r11 is in the list lst
+(define (in-list-asm lst fin)
+  (match lst
+    ['() (seq 
+           (Mov rax val-false) 
+           (Label fin))]
+    [(cons el rst) (let ([next (gensym 'inlistnext)])
+         (seq 
+           (Mov rax (value->bits el))
+           (Cmp rax r11)
+           (Jne next)
+           (Mov rax val-true)
+           (Jmp fin)
+           (Label next)
+           (in-list-asm rst fin)))]))
 
 ;; Id CEnv -> Integer
 (define (lookup x cenv)

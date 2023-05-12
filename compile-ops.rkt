@@ -33,6 +33,16 @@
     ['sub1
      (seq (assert-integer rax)
           (Sub rax (value->bits 1)))]
+    ['abs 
+     (seq (Mov r9 rax)
+          (twos-complement r9)
+          (Cmp rax 0)
+          (Cmovl rax r9))]
+    ['- (twos-complement rax)]
+    ['not (seq (Cmp rax val-false)
+               (Mov rax (value->bits #f))
+               (Mov r9  (value->bits #t))
+               (Cmove rax r9))]
     ['zero?
      (seq (assert-integer rax)
           (eq-value 0))]
@@ -125,6 +135,21 @@
           pad-stack
           (Call 'spite_write_stdout)
           unpad-stack)]))
+    ['integer? (type-pred mask-int type-int)]
+    ['boolean? (let ((ok (gensym 'ok))) 
+                    (seq (Mov r9 rax)
+                         (Mov rax val-true)
+                         (generate-long-comparisons (list val-true val-false) ok)
+                         (Mov rax val-false)
+                         (Label ok)))]))
+
+(define (generate-long-comparisons lst oklabel)
+  (match lst
+    ['() '()]
+    [(cons val rst) 
+     (seq (Cmp r9 val) 
+          (Je oklabel) 
+          (generate-long-comparisons rst oklabel))]))
 
 ;; Op2 -> Asm
 (define (compile-op2 p)
@@ -317,6 +342,20 @@
           (Mov (Offset r8 8) rax)
           (Mov rax (value->bits (void))))]))
 
+(define (compile-opN p)
+  (match p
+    ['+ (let ((opnloop (gensym 'opnloop)) (endloop (gensym 'endloop))) 
+             (seq (Pop r10)
+                  (Mov rax (value->bits 0))
+                  (Label opnloop)
+                  (Cmp r10 (value->bits 1))
+                  (Jl endloop)
+                  (Pop r8)
+                  (assert-integer r8)
+                  (Add rax r8)
+                  (Sub r10 (value->bits 1))
+                  (Jmp opnloop)
+                  (Label endloop)))]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -406,3 +445,12 @@
 ;; Undo the stack alignment after a call
 (define unpad-stack
   (seq (Add rsp r15)))
+
+
+;; Reg
+;; Performs twos complement on register
+(define (twos-complement reg)
+  (seq (Sar reg 1)
+       (Not reg)
+       (Add reg 1)
+       (Sal reg 1)))
