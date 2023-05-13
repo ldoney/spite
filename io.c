@@ -5,12 +5,15 @@
 #include "values.h"
 #include "runtime.h"
 
+#include <errno.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <wchar.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
+
+#define ON_MESSAGE_BUF_LEN 8192
 
 val_t read_byte(void)
 {
@@ -49,7 +52,7 @@ char *stoc_str(val_char_t *s, uint64_t len) {
   wcs[len] = L'\0';
   
   // Safety allocation, assuming every UTF-32 character will need 4 bytes
-  int buf_size = ((len * 4) + 1) * sizeof(char); // Extra for NUL byte
+  int buf_size = ((len + 1) * 4) * sizeof(char); // Extra for NUL byte
   char *mb = malloc(buf_size);
 
   int bytes = wcstombs(mb, wcs, buf_size);
@@ -72,6 +75,7 @@ val_char_t *ctos_str(char *s, uint64_t len) {
   return (val_char_t*) wc;
 }
 
+// Convenience method to create a spite string struct
 val_str_t *make_sstr(wchar_t *str_buf, uint64_t len) {
   val_str_t *str = malloc(sizeof(uint64_t) + (len*sizeof(wchar_t)));
   str->len = len;
@@ -276,20 +280,28 @@ val_t spite_accept(val_t sock) {
 }
 
 val_t spite_on_message(val_t sock, val_t lam_entry, val_t proc) {
-  // First argument is messsage, second argument is proc
+  // First argument is message, second argument is proc
   val_t (*fun)(val_t, val_t) = (val_t (*)(val_t, val_t)) lam_entry;
   int peer_sock = val_unwrap_socket(sock);
-  char *msg_buf = malloc(1024 * sizeof(char));
+  char *msg_buf = malloc(ON_MESSAGE_BUF_LEN * sizeof(char));
   int msg_len = 0;
 
   // Now that we have a new peer, keep reading and calling the lambda until the
   // message length is 0, which means the socket is closed
-  while((msg_len = read(peer_sock, msg_buf, 1024)) != 0) {
+  while((msg_len = read(peer_sock, msg_buf, ON_MESSAGE_BUF_LEN)) > 0) {
     wchar_t *s_msg = ctos_str(msg_buf, msg_len);
     val_str_t *s_str = make_sstr(s_msg, msg_len);
 
     (*fun)(val_wrap_str(s_str), proc);
     free(s_msg);
+  }
+
+  // We had an error, we should abort
+  // Unless the error is bad file descriptor (EBADF), which probably means the
+  // file descriptor was closed by the user inside of the on-message lambda
+  if (msg_len == -1 && errno != EBADF) {
+    perror("spite_on_message");
+    exit(-1);
   }
 
   free(msg_buf);
