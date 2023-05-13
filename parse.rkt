@@ -21,22 +21,23 @@
     [(cons e '()) (RawProg '() '() (parse-e e))]
     [_ (error "program parse error")]))
 
-;; [Listof S-Expr] [Listof Include] -> Lib
-(define (parse-lib cur-includes s)
+;; String [Listof S-Expr] [Listof Include] -> Lib
+(define (parse-lib origin-file cur-includes s)
   (define (get-name i)
     (match i
       [(Include file-name name) name]))
   (match s
     [(cons (and (cons (or 'include 'as) _) i) s) 
-     (match (parse-lib cur-includes s)
+     (match (parse-lib origin-file cur-includes s)
        [(Lib l-name l-ds l-depend)
         (match (parse-include i) 
                [(Include file-name name) 
-                (Lib l-name l-ds (if (in-list? equal? name (map get-name cur-includes))
-                                     l-depend
-                                     (cons (process-include (cons (Include file-name name) cur-includes) file-name) l-depend)))])])]
+                (let ((appended-file-name (string-append (get-file-dir origin-file) "/" file-name)))
+                  (Lib l-name l-ds (if (in-list? equal? name (map get-name cur-includes))
+                                      l-depend
+                                      (cons (process-include (cons (Include appended-file-name name) cur-includes) appended-file-name) l-depend))))])])]
     [(cons (and (cons 'define _) d) s)
-     (match (parse-lib cur-includes s)
+     (match (parse-lib origin-file cur-includes s)
        [(Lib name ds depend)
         (Lib name (cons (parse-define d) ds) depend)])]
     [_ (Lib "" '() '())])) ; How would a library get malformed? We should figure out data handling...
@@ -273,6 +274,6 @@
       (let ((res (read-all-file f)))
         (begin 
           (close-input-port f)
-          (match (parse-lib cur-includes res)
+          (match (parse-lib file-name cur-includes res)
             [(Lib "" ds depend) (Lib (last (string-split (car (string-split file-name ".rkt")) "/")) ds depend)]
             [x x]))))))

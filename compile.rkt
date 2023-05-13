@@ -96,6 +96,9 @@
                  (copy-env-to-stack fvs 8)
                  (compile-e e env #f)
                  (Add rsp (* 8 (length env)))))]
+        ;; There's some issue with this. I'm not sure the source, but some functions
+        ;; that are LamRest err with list operations. I think there's something up 
+        ;; with the stack
         [(LamRest xs x e)
           (let ((env  (append (reverse fvs) (list x) (reverse xs) (list #f))))
             (seq 

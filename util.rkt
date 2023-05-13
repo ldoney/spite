@@ -21,11 +21,11 @@
                       #t
                       (in-list? cond? value rst))]))
 
+(define (get-file-dir s)
+  (string-join (reverse (cdr (reverse (string-split s "/")))) "/"))
 
 (define (read-all-file f)
   (let ((e (read f))) 
     (if (eof-object? e) 
       '()
       (cons e (read-all-file f)))))
-
-

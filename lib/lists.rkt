@@ -1,4 +1,6 @@
 #lang racket
+(include "util.rkt")
+
 (define (map f lst) (match lst
                       ['() '()]
                       [(cons x rst) (cons (f x) (map f rst))]))
@@ -14,6 +16,18 @@
 (define (sub-list lst n) (if (= n 0)
                             lst
                             (sub-list (cdr lst) (sub1 n))))
+(define (in-list? e lst)
+  (match lst
+    ['() #f]
+    [(cons x rst) (if (util:equal? x e) #t (in-list? e rst))]))
+
+(define (list-eq? lst1 lst2)
+  (match lst1
+    ['() (if (empty? lst2) #t #f)]
+    [(cons x1 rst1) (match lst2
+      ['() #f]
+      [(cons x2 rst2) (if (util:equal? x1 x2) (list-eq? rst1 rst2) #f)])]))
+
 (define (length lst) 
   (if (empty? lst) 0 (add1 (length (cdr lst)))))
 
