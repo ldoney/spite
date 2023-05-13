@@ -39,12 +39,12 @@
 #define val_empty ((4 << char_shift) | nonchar_type_tag)
 
 
-#define file_shift (char_shift+2) //7
+#define file_shift (char_shift+3)
 #define file_type_mask ((1<< file_shift) - 1) 
-#define file_type_tag ((0 << (file_shift - 1)) | 56)
+#define file_type_tag 0b01111000
 
-#define socket_shift (char_shift+2) //7
+#define socket_shift (char_shift+3)
 #define socket_type_mask ((1 << socket_shift) - 1)
-#define socket_type_tag ((0 << (socket_shift - 1)) | 120)
+#define socket_type_tag 0b11111000
 
 #endif

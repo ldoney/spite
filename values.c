@@ -1,4 +1,5 @@
 #include "types.h"
+#include <stdio.h>
 #include "values.h"
 
 type_t val_typeof(val_t x)
@@ -25,6 +26,7 @@ type_t val_typeof(val_t x)
 
   switch (x) {
   case val_true:
+    return T_BOOL;
   case val_false:
     return T_BOOL;
   case val_eof:
