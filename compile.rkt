@@ -113,7 +113,8 @@
               (Add rsp (* 8 (length env)))))])
       (Ret))])))
 
-
+; Pops the stack rcx times and pushes it back as a list
+; Label Label -> Asm
 (define (pop-rcx-times start-lbl end-lbl)
   (seq 
       (Mov rax (imm->bits '()))
@@ -507,11 +508,11 @@
                    (Jmp next))
               cm2))])])]))
 
-; TODO Check to make sure the tail call is passing around properly
-;; [ListOf CondClause] Expr -> Asm
+;; [ListOf CondClause] Expr Env Bool -> Asm
 (define (compile-cond clist el c t?)
   (compile-cond-rec clist el (gensym 'end) c t?))
 
+;; [ListOf CondClause] Expr Label Env Bool -> Asm
 (define (compile-cond-rec clist el end c t?)
   (let* ([exp-end-label (gensym 'condend)])
     (match clist
@@ -526,11 +527,13 @@
             (Label exp-end-label)
             (compile-cond-rec lst el end c t?))])))
 
+;; Expr [ListOf CondClause] Expr Env Bool -> Asm
 (define (compile-case ev clist el c t?)
   (seq (compile-e ev c #f)
        (Mov r11 rax)
        (compile-case-rec clist el (gensym 'end) c t?)))
 
+;; [ListOf CondClause] Expr Label Env Bool -> Asm
 (define (compile-case-rec clist el end c t?)
   (let* ([exp-end-label (gensym 'caseend)] )
     (match clist
@@ -546,6 +549,7 @@
             (compile-case-rec rst el end c t?))])))
 
 ; Checks if the value in r11 is in the list lst
+; [ListOf T] Label -> Asm
 (define (in-list-asm lst fin)
   (match lst
     ['() (seq 

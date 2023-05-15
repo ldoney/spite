@@ -2,11 +2,14 @@
 (provide parse parse-define parse-raw parse-e)
 (require "ast.rkt" "util.rkt")
 
+;; Parses the program, turns the includes to be actual libs
 ;; [Listof S-Expr] -> Prog
 (define (parse s)
   (match (parse-raw s)
     [(RawProg ds includes e) (Prog ds (remove-dupes (flatten-libs (includes->libs '() includes))) e)]))
 
+;; Parses the program, keeping the includes generic for now until
+;; it gets passed to Prog
 ;; [Listof S-Expr] -> RawProg
 (define (parse-raw s) 
   (match s
