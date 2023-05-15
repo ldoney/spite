@@ -21,7 +21,7 @@
 
 ;; Gets the path from a HTTP request string
 (define (get-path s)
-  (let ([rest (remove-first-char (strings:str-char s #\space))])
+  (let ([rest (remove-first-char (strings:strchr s #\space))])
     (get-first-chars (strings:get-index rest #\space) rest)))
 
 (define (send-file-resp peer file)

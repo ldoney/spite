@@ -53,6 +53,7 @@ char *stoc_str(val_char_t *s, uint64_t len) {
   
   // Safety allocation, assuming every UTF-32 character will need 4 bytes
   int buf_size = ((len + 1) * 4) * sizeof(char); // Extra for NUL byte
+  // Happens here!
   char *mb = malloc(buf_size);
 
   int bytes = wcstombs(mb, wcs, buf_size);

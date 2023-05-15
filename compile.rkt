@@ -1,6 +1,6 @@
 #lang racket
 (provide (all-defined-out))
-(require "ast.rkt" "types.rkt" "lambdas.rkt" "fv.rkt" "compile-ops.rkt" "namespacing.rkt" a86/ast)
+(require "ast.rkt" "types.rkt" "lambdas.rkt" "fv.rkt" "compile-ops.rkt" "namespacing.rkt" "util.rkt" a86/ast)
 
 ;; Registers used
 (define rax 'rax) ; return
@@ -88,27 +88,27 @@
       (match lam
         [(LamPlain xs e)
           (let ((env  (append (reverse fvs) (reverse xs) (list #f))))
-            (seq (%% "Lam Plain start")
-                 (Mov rax (Offset rsp (* 8 (length xs))))
-                 (Xor rax type-proc)
-                 (Cmp 'rcx (length xs))
-                 (Jne 'raise_error)
-                 (copy-env-to-stack fvs 8)
-                 (compile-e e env #f)
-                 (Add rsp (* 8 (length env)))))]
-        ;; There's some issue with this. I'm not sure the source, but some functions
-        ;; that are LamRest err with list operations. I think there's something up 
-        ;; with the stack
-        [(LamRest xs x e)
-          (let ((env  (append (reverse fvs) (list x) (reverse xs) (list #f))))
             (seq 
+              (%% "Lam Plain Start")
               (Mov rax (Offset rsp (* 8 (length xs))))
               (Xor rax type-proc)
+              (copy-env-to-stack fvs 8)
+              (Cmp 'rcx (length xs))
+              (Jne 'raise_error)
+              (compile-e e env #f)
+              (Add rsp (* 8 (length env)))))]
+        [(LamRest xs x e)
+          (let ((env (append (reverse fvs) (list x) (reverse xs) (list #f))))
+            (seq 
+              (%% "Lam Rest Start")
               (Cmp 'rcx (length xs))
               (Jl 'raise_error)
               (Sub 'rcx (length xs))
               (pop-rcx-times (gensym 'start_rst) (gensym 'end_rst))
+              (Mov rax (Offset rsp (* 8 (+ 1 (length xs)))))
+              (Xor rax type-proc)
               (copy-env-to-stack fvs 8)
+              (%% (string-append "Compiling expr with env [" (symlist->string env) "]"))
               (compile-e e env #f)
               (Add rsp (* 8 (length env)))))])
       (Ret))])))
@@ -157,7 +157,7 @@
     [(Prim1 p e)        (compile-prim1 p e c)]
     [(Prim2 p e1 e2)    (compile-prim2 p e1 e2 c)]
     [(Prim3 p e1 e2 e3) (compile-prim3 p e1 e2 e3 c)]
-    [(PrimN p es)       (compile-primN p es c t?)]
+    [(PrimN p es)       (compile-primN p es c)]
     [(If e1 e2 e3)      (compile-if e1 e2 e3 c t?)]
     [(Begin es)         (compile-begin es c t?)]
     [(Let (list x ...) (list e1 ...) e2)
@@ -228,7 +228,7 @@
        (compile-op3 p)))
 
 ;; OpN [Listof Expr] CEnv -> Asm
-(define (compile-primN p es c t?)
+(define (compile-primN p es c)
   (seq (compile-e* es c #f)
        (Push (value->bits (length es)))
        (compile-opN p)))
@@ -323,7 +323,7 @@
          (Lea rax r)
          (Push rax)
          (%%% "compile-es")
-         (compile-es (cons e es) (cons #f c))         
+         (compile-es (cons e es) (cons #f c))
          (%%% "move proc into rax")
          (Mov rax (Offset rsp i))
          (%%% "assert-proc")

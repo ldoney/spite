@@ -1,6 +1,19 @@
 #lang racket
 (provide (all-defined-out))
 
+(define (symlist->string lst)
+  (match lst
+    ['() ""]
+    [(cons x rst) (string-append (tostring x) (if (empty? rst) "" ", ") (symlist->string rst))]))
+
+(define (tostring x)
+  (cond
+    [(symbol? x) (symbol->string x)]
+    [(string? x) x]
+    [(boolean? x) (if x "#t" "#f")]
+;    [(integer? x) (integer->string x)]
+    [else x]))
+
 ; ((Fun T V) -> Bool) T List -> List
 (define (cons-nodupes eq x lst)
   (if (in-list? eq x lst) lst (cons x lst)))
