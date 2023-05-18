@@ -167,9 +167,9 @@ val_t spite_read(val_t fs, val_t num_chars) {
     exit(-1);
   } 
 
-  wchar_t *sstr = ctos_str(cstr, n);
-  val_str_t *str = malloc(sizeof(uint64_t) + (n*sizeof(wchar_t)));
-  wmemcpy(str->codepoints, sstr, n);
+  wchar_t *sstr = ctos_str(cstr, bytes_read);
+  val_str_t *str = malloc(sizeof(uint64_t) + (bytes_read*sizeof(wchar_t)));
+  wmemcpy(str->codepoints, sstr, bytes_read);
   str->len = bytes_read;
 
   free(sstr);
