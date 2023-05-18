@@ -153,15 +153,12 @@
 )
 
 ;; Removes the first character of a string
-;; String -> String
 (define (remove-first-char s)
   (char-list->str (cdr (str->char-list s))))
 
 ;; Gets the first n chars of a string
-;; Integer String -> String
 (define (get-first-chars n s)
   (char-list->str (lists:take-only (str->char-list s) n)))
 
-;; String String -> String
 (define (str-append s1 s2)
-  (char-list->str (lists:append (str->char-list s1) (str->char-list s2))))
+  (char-list->str (lists:append-binary (str->char-list s1) (str->char-list s2))))

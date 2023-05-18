@@ -16,7 +16,7 @@
     [(If e1 e2 e3)      (append (fv* e1) (fv* e2) (fv* e3))]
     [(Begin es)         (append-map fv* es)]
     [(Let xs es e2)     (append (append-map fv* es) (remq* xs (fv* e2)))]
-    [(Let* xs es e2)    (append (remq* xs (append-map fv* es)) (remq* xs (fv* e2)))]
+    [(Let* xs es e2)    (append (append-map fv* es) (remq* xs (fv* e2)))]
     [(Cond clist el)    (append (append-map fv* clist) (fv* el))]
     [(Case ev clist el) (append (fv* ev) (append-map fv* clist) (fv* el))]
     [(Clause p b)       (append (fv* p) (fv* b))]

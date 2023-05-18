@@ -1,4 +1,4 @@
-#lang racket 
+#lang sample
 (include "strings.rkt")
 (include "lists.rkt")
 (include "util.rkt")
@@ -13,27 +13,23 @@
     (strings:get-first-chars (strings:get-index rest #\space) rest)))
 
 (define (send-file-resp peer file)
-  (let* ([f (open file #\r)]
-         [file-contents (read f 4096)]
-         [status-line "HTTP/1.0 200 OK\r\n\r\n"])
-    (begin (write peer (strings:str-append status-line file-contents))
+  (let ([f (open file #\r)] [status-line "HTTP/1.0 200 OK\r\n\r\n"])
+    (begin (write peer (strings:str-append status-line (read f 4096)))
            (close f))))
 
-;; Respond to the peer if they request
+;; Respond to the peer if they request /
 (define (http-resp peer file)
   (lambda (msg)
-    (let ((path (get-path msg)) (method (get-method msg)))
-      (begin (println (strings:str-append method
-                                  (strings:str-append " Path: "
-                                            path)))
-           (if (util:and (strings:str-eq? method "GET")
-                         (strings:str-eq? path file))
-               (send-file-resp peer path)
+    (begin (println (strings:str-append (get-method msg)
+                                (strings:str-append " Path: "
+                                            (get-path msg))))
+           (if (util:and (strings:str-eq? (get-method msg) "GET")
+                         (strings:str-eq? (get-path msg) "/"))
+               (send-file-resp peer file)
                (write peer "HTTP/1.0 404 NOTFOUND\r\n"))
-           (close peer)))))
+           (close peer))))
 
 (define (http-serv-file sock file)
   (let ([peer (accept sock)])
     (begin (on-message peer (http-resp peer file))
            (http-serv-file sock file))))
-
