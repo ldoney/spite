@@ -13,7 +13,7 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 
-#define ON_MESSAGE_BUF_LEN 8192
+#define ON_MESSAGE_BUF_LEN 1024
 
 val_t read_byte(void)
 {
