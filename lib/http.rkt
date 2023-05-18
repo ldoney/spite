@@ -19,17 +19,6 @@
 (define (is-index? s) 
   (util:or
     (util:and (util:equal? (string-ref s 4) #\/)
-              (util:equal? (string-ref s 5)  #\i)
-              (util:equal? (string-ref s 6)  #\n)
-              (util:equal? (string-ref s 7)  #\d)
-              (util:equal? (string-ref s 8)  #\e)
-              (util:equal? (string-ref s 9)  #\x)
-              (util:equal? (string-ref s 10)  #\.)
-              (util:equal? (string-ref s 11)  #\h)
-              (util:equal? (string-ref s 12)  #\t)
-              (util:equal? (string-ref s 13)  #\m)
-              (util:equal? (string-ref s 14)  #\l))
-    (util:and (util:equal? (string-ref s 4) #\/)
               (util:equal? (string-ref s 5) #\space))))
 
 ;; Gets the path from a HTTP request string
@@ -47,9 +36,7 @@
   (lambda (msg)
     (begin (println "Got request!")
            (if (util:and (is-get? msg) (is-index? msg))
-               (send-file-resp peer file)
-               (begin (println "Bad request, responding with 404")
-                      (write peer "HTTP/1.0 404 NOTFOUND\r\n")))
+               (send-file-resp peer file) (write peer "HTTP/1.0 404 NOTFOUND\r\n"))
            (close peer))))
 
 (define (http-serv-file sock file)
