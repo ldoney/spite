@@ -422,31 +422,28 @@
         (assert-char rax)
         (assert-string r10)
         (assert-integer r8)
-        ;get rid of the type branding for int to do math later
-        ;(Xor r8 type-int)
+        ;get rid of the type branding for int, char, and str to do math later
         (Sar r8 int-shift)
+        (Sar rax char-shift)
+        (Xor r10 type-str)
 
         ;check that the index is less than the length
-        ;(Cmp (Offset r10 0) r8)
-        ;(Jg 'raise_error_align)
-
+        (Cmp r8 (Offset r10 0))
+        (Jge 'raise_error_align)
         
         ;do index * 4
         (Sal r8 2)
 
-        
-        ;char->integer
-        (Sar rax char-shift)
-
-        
         ;increment the place in memory to match the index
-        (Add r10 r8)  
+        (Add r10 r8)
 
         ;move the char into the correct cell to replace the previous value
-        (Mov (Offset r10 4) eax)  ; 4 to account for the length, shouldnt it be 8?
+        (Mov (Offset r10 8) eax)
         
         (Sub r10 r8)
         (Mov rax r10)
+        ;; Add string tag back to rax
+        (Xor rax type-str)
         (%%% "end string assign")
       )]))
 
